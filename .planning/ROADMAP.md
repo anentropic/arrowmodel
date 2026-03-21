@@ -12,7 +12,7 @@ Arrowdantic delivers dict-free, single-step conversion from Arrow buffers to Pyd
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Build Foundation** - Maturin/PyO3 build system producing an importable `arrowdantic._core` Rust extension
+- [x] **Phase 1: Build Foundation** - Maturin/PyO3 build system producing an importable `arrowdantic._core` Rust extension (completed 2026-03-21)
 - [ ] **Phase 2: Spike & Benchmark** - Minimal end-to-end primitive conversion with benchmark to prove performance hypothesis
 - [ ] **Phase 3: Core Conversion** - Alias resolution, schema error handling, Table input, convenience API, and pre-interned strings
 - [ ] **Phase 4: Extended Types** - Temporal types, lists, structs, dictionary arrays, and null type
@@ -32,7 +32,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 Plans:
 - [x] 01-01-PLAN.md -- Create Rust crate, configure maturin build backend, build and verify importable _core module
-- [ ] 01-02-PLAN.md -- Create build verification tests and update CI workflows for Rust toolchain
+- [x] 01-02-PLAN.md -- Create build verification tests and update CI workflows for Rust toolchain
 
 ### Phase 2: Spike & Benchmark
 **Goal**: A minimal end-to-end conversion path from Arrow RecordBatch to Pydantic models for primitive types, with a benchmark script that quantifies speedup over pyarrow's `to_pylist()` + `model_construct`
@@ -97,7 +97,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Build Foundation | 0/2 | Planning complete | - |
+| 1. Build Foundation | 2/2 | Complete   | 2026-03-21 |
 | 2. Spike & Benchmark | 0/? | Not started | - |
 | 3. Core Conversion | 0/? | Not started | - |
 | 4. Extended Types | 0/? | Not started | - |

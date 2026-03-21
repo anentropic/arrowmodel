@@ -12,11 +12,12 @@ Dict-free, single-step conversion from Arrow buffers to Pydantic model instances
 
 ### Validated
 
-(None yet — ship to validate)
+- ✓ Rust/PyO3 extension module built with maturin, importable as `arrowdantic._core` — Phase 1
+- ✓ Arrow C Data Interface for zero-copy buffer handoff (via `pyo3-arrow`) — Phase 1
 
 ### Active
 
-- [ ] Rust/PyO3 extension module built with maturin, importable as `arrowdantic._core`
+
 - [ ] `ArrowModelConverter` class that cross-references Arrow schema against Pydantic model fields at construction time
 - [ ] Schema cross-referencing compiled once at converter init, not per batch
 - [ ] Full support for Pydantic v2 field aliases and `validation_alias` (resolution priority: validation_alias > alias > field_name)
@@ -24,7 +25,6 @@ Dict-free, single-step conversion from Arrow buffers to Pydantic model instances
 - [ ] Fast path (default): `model_construct` with no Pydantic validation, dict-free row construction
 - [ ] Validated path (`validate=True`): serde_json row serialisation → `validate_json` for full Pydantic validation
 - [ ] Accept both pyarrow `RecordBatch` and `Table` as input (iterate batches internally for Table)
-- [ ] Arrow C Data Interface for zero-copy buffer handoff (via `pyo3-arrow`)
 - [ ] Full Arrow type coverage: Int8–64, UInt8–64, Float32/64, Boolean, Utf8/LargeUtf8, Date32, Timestamp (naive + aware), Duration, List/LargeList, Struct (recursive nested models), Dictionary, Null
 - [ ] Null handling via Arrow validity bitmap — check before extract, emit `None` for null values
 - [ ] `ValueError` at converter construction for: missing required fields, unresolvable types, ambiguous matches
@@ -88,4 +88,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-21 after initialization*
+*Last updated: 2026-03-21 after Phase 1 completion*

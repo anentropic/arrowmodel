@@ -112,54 +112,54 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BUILD-01 | — | Pending |
-| BUILD-02 | — | Pending |
-| BUILD-03 | — | Pending |
-| SCHEMA-01 | — | Pending |
-| SCHEMA-02 | — | Pending |
-| SCHEMA-03 | — | Pending |
-| SCHEMA-04 | — | Pending |
-| ALIAS-01 | — | Pending |
-| ALIAS-02 | — | Pending |
-| ALIAS-03 | — | Pending |
-| FAST-01 | — | Pending |
-| FAST-02 | — | Pending |
-| FAST-03 | — | Pending |
-| VALID-01 | — | Pending |
-| VALID-02 | — | Pending |
-| VALID-03 | — | Pending |
-| TYPE-01 | — | Pending |
-| TYPE-02 | — | Pending |
-| TYPE-03 | — | Pending |
-| TYPE-04 | — | Pending |
-| TYPE-05 | — | Pending |
-| NULL-01 | — | Pending |
-| NULL-02 | — | Pending |
-| NULL-03 | — | Pending |
-| TEMP-01 | — | Pending |
-| TEMP-02 | — | Pending |
-| TEMP-03 | — | Pending |
-| TEMP-04 | — | Pending |
-| TEMP-05 | — | Pending |
-| CPLX-01 | — | Pending |
-| CPLX-02 | — | Pending |
-| CPLX-03 | — | Pending |
-| CPLX-04 | — | Pending |
-| CPLX-05 | — | Pending |
-| INPUT-01 | — | Pending |
-| INPUT-02 | — | Pending |
-| INPUT-03 | — | Pending |
-| API-01 | — | Pending |
-| API-02 | — | Pending |
-| API-03 | — | Pending |
-| API-04 | — | Pending |
-| API-05 | — | Pending |
+| BUILD-01 | Phase 1 | Pending |
+| BUILD-02 | Phase 1 | Pending |
+| BUILD-03 | Phase 1 | Pending |
+| SCHEMA-01 | Phase 2 | Pending |
+| SCHEMA-02 | Phase 2 | Pending |
+| SCHEMA-03 | Phase 3 | Pending |
+| SCHEMA-04 | Phase 3 | Pending |
+| ALIAS-01 | Phase 3 | Pending |
+| ALIAS-02 | Phase 3 | Pending |
+| ALIAS-03 | Phase 3 | Pending |
+| FAST-01 | Phase 2 | Pending |
+| FAST-02 | Phase 3 | Pending |
+| FAST-03 | Phase 2 | Pending |
+| VALID-01 | Phase 5 | Pending |
+| VALID-02 | Phase 5 | Pending |
+| VALID-03 | Phase 5 | Pending |
+| TYPE-01 | Phase 2 | Pending |
+| TYPE-02 | Phase 2 | Pending |
+| TYPE-03 | Phase 2 | Pending |
+| TYPE-04 | Phase 2 | Pending |
+| TYPE-05 | Phase 2 | Pending |
+| NULL-01 | Phase 2 | Pending |
+| NULL-02 | Phase 2 | Pending |
+| NULL-03 | Phase 2 | Pending |
+| TEMP-01 | Phase 4 | Pending |
+| TEMP-02 | Phase 4 | Pending |
+| TEMP-03 | Phase 4 | Pending |
+| TEMP-04 | Phase 4 | Pending |
+| TEMP-05 | Phase 4 | Pending |
+| CPLX-01 | Phase 4 | Pending |
+| CPLX-02 | Phase 4 | Pending |
+| CPLX-03 | Phase 4 | Pending |
+| CPLX-04 | Phase 4 | Pending |
+| CPLX-05 | Phase 4 | Pending |
+| INPUT-01 | Phase 2 | Pending |
+| INPUT-02 | Phase 3 | Pending |
+| INPUT-03 | Phase 1 | Pending |
+| API-01 | Phase 2 | Pending |
+| API-02 | Phase 2 | Pending |
+| API-03 | Phase 3 | Pending |
+| API-04 | Phase 5 | Pending |
+| API-05 | Phase 5 | Pending |
 
 **Coverage:**
-- v1 requirements: 41 total
-- Mapped to phases: 0
-- Unmapped: 41 ⚠️
+- v1 requirements: 42 total
+- Mapped to phases: 42
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-21*
-*Last updated: 2026-03-21 after initial definition*
+*Last updated: 2026-03-21 after roadmap revision (Phase 2 split into Spike & Benchmark + Core Conversion)*

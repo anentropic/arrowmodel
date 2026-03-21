@@ -28,10 +28,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   1. `import arrowdantic._core` succeeds in a Python 3.11+ environment after `maturin develop`
   2. `pyproject.toml` is configured with maturin as build backend and `Cargo.toml` contains all required Rust dependencies (pyo3, arrow-rs, pyo3-arrow, serde_json, chrono)
   3. The Rust module can accept Arrow data via the PyCapsule/C Data Interface (pyo3-arrow) and return a Python object
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: TBD
+- [ ] 01-01-PLAN.md -- Create Rust crate, configure maturin build backend, build and verify importable _core module
+- [ ] 01-02-PLAN.md -- Create build verification tests and update CI workflows for Rust toolchain
 
 ### Phase 2: Spike & Benchmark
 **Goal**: A minimal end-to-end conversion path from Arrow RecordBatch to Pydantic models for primitive types, with a benchmark script that quantifies speedup over pyarrow's `to_pylist()` + `model_construct`
@@ -96,7 +97,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Build Foundation | 0/? | Not started | - |
+| 1. Build Foundation | 0/2 | Planning complete | - |
 | 2. Spike & Benchmark | 0/? | Not started | - |
 | 3. Core Conversion | 0/? | Not started | - |
 | 4. Extended Types | 0/? | Not started | - |

@@ -7,9 +7,9 @@
 
 ### Build System
 
-- [ ] **BUILD-01**: Rust/PyO3 extension module built with maturin, importable as `arrowdantic._core`
-- [ ] **BUILD-02**: `pyproject.toml` configured for maturin with `uv` integration
-- [ ] **BUILD-03**: `Cargo.toml` with pyo3, arrow-rs, pyo3-arrow, serde_json, chrono dependencies
+- [x] **BUILD-01**: Rust/PyO3 extension module built with maturin, importable as `arrowdantic._core`
+- [x] **BUILD-02**: `pyproject.toml` configured for maturin with `uv` integration
+- [x] **BUILD-03**: `Cargo.toml` with pyo3, arrow-rs, pyo3-arrow, serde_json, chrono dependencies
 
 ### Schema Cross-Reference
 
@@ -70,7 +70,7 @@
 
 - [ ] **INPUT-01**: Accept pyarrow `RecordBatch` as input
 - [ ] **INPUT-02**: Accept pyarrow `Table` as input (iterate batches internally)
-- [ ] **INPUT-03**: Arrow C Data Interface via pyo3-arrow for zero-copy buffer handoff
+- [x] **INPUT-03**: Arrow C Data Interface via pyo3-arrow for zero-copy buffer handoff
 
 ### API Surface
 
@@ -112,9 +112,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BUILD-01 | Phase 1 | Pending |
-| BUILD-02 | Phase 1 | Pending |
-| BUILD-03 | Phase 1 | Pending |
+| BUILD-01 | Phase 1 | Complete |
+| BUILD-02 | Phase 1 | Complete |
+| BUILD-03 | Phase 1 | Complete |
 | SCHEMA-01 | Phase 2 | Pending |
 | SCHEMA-02 | Phase 2 | Pending |
 | SCHEMA-03 | Phase 3 | Pending |
@@ -148,7 +148,7 @@
 | CPLX-05 | Phase 4 | Pending |
 | INPUT-01 | Phase 2 | Pending |
 | INPUT-02 | Phase 3 | Pending |
-| INPUT-03 | Phase 1 | Pending |
+| INPUT-03 | Phase 1 | Complete |
 | API-01 | Phase 2 | Pending |
 | API-02 | Phase 2 | Pending |
 | API-03 | Phase 3 | Pending |

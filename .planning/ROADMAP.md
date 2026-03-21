@@ -31,7 +31,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01-PLAN.md -- Create Rust crate, configure maturin build backend, build and verify importable _core module
+- [x] 01-01-PLAN.md -- Create Rust crate, configure maturin build backend, build and verify importable _core module
 - [ ] 01-02-PLAN.md -- Create build verification tests and update CI workflows for Rust toolchain
 
 ### Phase 2: Spike & Benchmark

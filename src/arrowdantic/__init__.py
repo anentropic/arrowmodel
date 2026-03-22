@@ -228,6 +228,8 @@ class ArrowModelConverter:
 def from_arrow(
     model_class: type[BaseModel],
     data: pa.RecordBatch | pa.Table,
+    *,
+    validate: bool = False,
 ) -> list[BaseModel]:
     """One-shot conversion from Arrow data to Pydantic model instances.
 
@@ -236,8 +238,9 @@ def from_arrow(
     prefer creating an ArrowModelConverter instance and reusing it.
 
     Per API-03: Convenience one-shot function.
+    Per DEBT-04: Accepts validate parameter for API symmetry with iter_arrow.
     """
-    converter = ArrowModelConverter(model_class)
+    converter = ArrowModelConverter(model_class, validate=validate)
     return converter.convert(data)
 
 

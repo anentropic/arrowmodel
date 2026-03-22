@@ -643,6 +643,28 @@ class TestFromArrow:
         assert results[2].name == "c"
         assert isinstance(results[0], MixedModel)
 
+    def test_from_arrow_validated_record_batch(self) -> None:
+        """DEBT-04: from_arrow(validate=True) works with RecordBatch."""
+        from arrowdantic import from_arrow
+        batch = pa.record_batch({"id": [1, 2], "name": ["a", "b"],
+                                 "score": [1.0, 2.0], "active": [True, False]})
+        results = from_arrow(MixedModel, batch, validate=True)
+        assert len(results) == 2
+        assert results[0].id == 1
+        assert results[1].name == "b"
+        assert isinstance(results[0], MixedModel)
+
+    def test_from_arrow_validated_table(self) -> None:
+        """DEBT-04: from_arrow(validate=True) works with Table."""
+        from arrowdantic import from_arrow
+        table = pa.table({"id": [1, 2, 3], "name": ["a", "b", "c"],
+                         "score": [1.0, 2.0, 3.0], "active": [True, False, True]})
+        results = from_arrow(MixedModel, table, validate=True)
+        assert len(results) == 3
+        assert results[0].id == 1
+        assert results[2].name == "c"
+        assert isinstance(results[0], MixedModel)
+
 
 class TestStringInterning:
     """Tests for FAST-02: Pre-interned Python field name strings."""
@@ -1395,6 +1417,17 @@ class TestIteratorAPI:
         results = list(iter_arrow(MixedModel, batch))
         assert len(results) == 2
         assert results[0].id == 1
+        assert isinstance(results[0], MixedModel)
+
+    def test_iter_arrow_validated(self) -> None:
+        """DEBT-03: iter_arrow(validate=True) convenience wrapper works."""
+        from arrowdantic import iter_arrow
+        batch = pa.record_batch({"id": [1, 2], "name": ["a", "b"],
+                                 "score": [1.0, 2.0], "active": [True, False]})
+        results = list(iter_arrow(MixedModel, batch, validate=True))
+        assert len(results) == 2
+        assert results[0].id == 1
+        assert results[1].name == "b"
         assert isinstance(results[0], MixedModel)
 
     def test_iter_empty_table(self) -> None:

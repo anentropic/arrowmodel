@@ -14,6 +14,7 @@ use arrow_array::{
 use arrow_schema::{DataType, TimeUnit};
 use pyo3::prelude::*;
 use pyo3::types::{PyDateTime, PyDict, PyList, PyString, PyTzInfo};
+use serde_json::{Map, Number, Value};
 
 type PyObject = Py<PyAny>;
 
@@ -340,6 +341,218 @@ impl<'a> ColumnExtractor<'a> {
             ColumnExtractor::Null => Ok(py.None()),
         }
     }
+
+    /// Extract the value at `row` as a serde_json::Value for JSON serialization.
+    /// Used by the validated path (validate=True) to build JSON bytes per row.
+    /// Checks is_null(row) BEFORE accessing value(row).
+    /// Returns Value::Null for null values (key included, not omitted -- Pitfall 7).
+    pub fn extract_json_value(&self, py: Python<'_>, row: usize) -> Result<Value, PyErr> {
+        match self {
+            ColumnExtractor::Int8(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    Ok(Value::Number(Number::from(arr.value(row))))
+                }
+            }
+            ColumnExtractor::Int16(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    Ok(Value::Number(Number::from(arr.value(row))))
+                }
+            }
+            ColumnExtractor::Int32(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    Ok(Value::Number(Number::from(arr.value(row))))
+                }
+            }
+            ColumnExtractor::Int64(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    Ok(Value::Number(Number::from(arr.value(row))))
+                }
+            }
+            ColumnExtractor::UInt8(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    Ok(Value::Number(Number::from(arr.value(row))))
+                }
+            }
+            ColumnExtractor::UInt16(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    Ok(Value::Number(Number::from(arr.value(row))))
+                }
+            }
+            ColumnExtractor::UInt32(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    Ok(Value::Number(Number::from(arr.value(row))))
+                }
+            }
+            ColumnExtractor::UInt64(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    Ok(Value::Number(Number::from(arr.value(row))))
+                }
+            }
+            // Pitfall 5: Float NaN/Infinity -> Value::Null (not serde_json error)
+            ColumnExtractor::Float32(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    let v = arr.value(row);
+                    if v.is_nan() || v.is_infinite() {
+                        Ok(Value::Null)
+                    } else {
+                        Ok(Number::from_f64(v as f64)
+                            .map(Value::Number)
+                            .unwrap_or(Value::Null))
+                    }
+                }
+            }
+            ColumnExtractor::Float64(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    let v = arr.value(row);
+                    if v.is_nan() || v.is_infinite() {
+                        Ok(Value::Null)
+                    } else {
+                        Ok(Number::from_f64(v)
+                            .map(Value::Number)
+                            .unwrap_or(Value::Null))
+                    }
+                }
+            }
+            ColumnExtractor::Boolean(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    Ok(Value::Bool(arr.value(row)))
+                }
+            }
+            ColumnExtractor::Utf8(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    Ok(Value::String(arr.value(row).to_owned()))
+                }
+            }
+            ColumnExtractor::LargeUtf8(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    Ok(Value::String(arr.value(row).to_owned()))
+                }
+            }
+            // --- Temporal types: format as ISO 8601 strings for Pydantic ---
+            ColumnExtractor::Date32(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    match arr.value_as_date(row) {
+                        Some(d) => {
+                            Ok(Value::String(d.format("%Y-%m-%d").to_string()))
+                        }
+                        None => Ok(Value::Null),
+                    }
+                }
+            }
+            ColumnExtractor::TimestampNaive(arr, unit) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    match extract_naive_dt_value(*arr, row, *unit) {
+                        Some(dt) => {
+                            Ok(Value::String(
+                                dt.format("%Y-%m-%dT%H:%M:%S%.f").to_string(),
+                            ))
+                        }
+                        None => Ok(Value::Null),
+                    }
+                }
+            }
+            ColumnExtractor::TimestampAware(arr, unit, _tz_obj) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    // Arrow timestamps with tz are stored in UTC.
+                    // Append +00:00 so Pydantic produces tz-aware datetime.
+                    match extract_naive_dt_value(*arr, row, *unit) {
+                        Some(dt) => {
+                            let s = dt.format("%Y-%m-%dT%H:%M:%S%.f").to_string();
+                            Ok(Value::String(format!("{s}+00:00")))
+                        }
+                        None => Ok(Value::Null),
+                    }
+                }
+            }
+            ColumnExtractor::Duration(arr, unit) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    match extract_duration_value(*arr, row, *unit) {
+                        Some(td) => Ok(Value::String(timedelta_to_iso8601(&td))),
+                        None => Ok(Value::Null),
+                    }
+                }
+            }
+            // --- Complex types ---
+            ColumnExtractor::List(arr, child_dt) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    let child_array = arr.value(row);
+                    let len = child_array.len();
+                    let child_ext =
+                        prepare_extractor(py, child_array.as_ref(), child_dt, None)?;
+                    let mut items: Vec<Value> = Vec::with_capacity(len);
+                    for j in 0..len {
+                        items.push(child_ext.extract_json_value(py, j)?);
+                    }
+                    Ok(Value::Array(items))
+                }
+            }
+            ColumnExtractor::LargeList(arr, child_dt) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    let child_array = arr.value(row);
+                    let len = child_array.len();
+                    let child_ext =
+                        prepare_extractor(py, child_array.as_ref(), child_dt, None)?;
+                    let mut items: Vec<Value> = Vec::with_capacity(len);
+                    for j in 0..len {
+                        items.push(child_ext.extract_json_value(py, j)?);
+                    }
+                    Ok(Value::Array(items))
+                }
+            }
+            ColumnExtractor::Struct(_arr, children, _model_cls) => {
+                if _arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    let mut map = Map::new();
+                    for (field_name, extractor) in children.iter() {
+                        let key = field_name.bind(py).to_str()?.to_owned();
+                        let value = extractor.extract_json_value(py, row)?;
+                        map.insert(key, value);
+                    }
+                    Ok(Value::Object(map))
+                }
+            }
+            ColumnExtractor::Null => Ok(Value::Null),
+        }
+    }
 }
 
 /// Extract a naive datetime from a timestamp column at the given row.
@@ -442,5 +655,93 @@ fn extract_duration(
     match td {
         Some(delta) => Ok(delta.into_pyobject(py)?.into_any().unbind()),
         None => Ok(py.None()),
+    }
+}
+
+/// Convert a chrono::TimeDelta to ISO 8601 duration string (PxDTxHxMxS).
+/// Pydantic's model_validate_json expects this format for timedelta fields.
+fn timedelta_to_iso8601(td: &chrono::TimeDelta) -> String {
+    let total_secs = td.num_seconds();
+    let is_negative = total_secs < 0;
+    let total_secs = total_secs.unsigned_abs();
+
+    let days = total_secs / 86400;
+    let remaining = total_secs % 86400;
+    let hours = remaining / 3600;
+    let remaining = remaining % 3600;
+    let minutes = remaining / 60;
+    let seconds = remaining % 60;
+
+    // Include subsecond microseconds from the TimeDelta
+    let subsec_nanos = td.subsec_nanos().unsigned_abs();
+    let micros = subsec_nanos / 1000;
+
+    let mut result = String::new();
+    if is_negative {
+        result.push('-');
+    }
+    result.push('P');
+    if days > 0 {
+        result.push_str(&format!("{days}D"));
+    }
+    // Always include T section if there are time components
+    if hours > 0 || minutes > 0 || seconds > 0 || micros > 0 || days == 0 {
+        result.push('T');
+        if hours > 0 {
+            result.push_str(&format!("{hours}H"));
+        }
+        if minutes > 0 {
+            result.push_str(&format!("{minutes}M"));
+        }
+        if micros > 0 {
+            result.push_str(&format!("{seconds}.{micros:06}S"));
+        } else if seconds > 0 || (hours == 0 && minutes == 0 && days == 0) {
+            result.push_str(&format!("{seconds}S"));
+        }
+    }
+    result
+}
+
+/// Extract the naive datetime for a given timestamp row, returning a chrono::NaiveDateTime.
+fn extract_naive_dt_value(
+    arr: &dyn Array,
+    row: usize,
+    unit: TimeUnit,
+) -> Option<chrono::NaiveDateTime> {
+    match unit {
+        TimeUnit::Second => {
+            as_primitive_array::<TimestampSecondType>(arr).value_as_datetime(row)
+        }
+        TimeUnit::Millisecond => {
+            as_primitive_array::<TimestampMillisecondType>(arr).value_as_datetime(row)
+        }
+        TimeUnit::Microsecond => {
+            as_primitive_array::<TimestampMicrosecondType>(arr).value_as_datetime(row)
+        }
+        TimeUnit::Nanosecond => {
+            as_primitive_array::<TimestampNanosecondType>(arr).value_as_datetime(row)
+        }
+    }
+}
+
+/// Extract a duration value as chrono::TimeDelta for a given row.
+fn extract_duration_value(
+    arr: &dyn Array,
+    row: usize,
+    unit: TimeUnit,
+) -> Option<chrono::TimeDelta> {
+    match unit {
+        TimeUnit::Second => {
+            as_primitive_array::<DurationSecondType>(arr).value_as_duration(row)
+        }
+        TimeUnit::Millisecond => {
+            as_primitive_array::<DurationMillisecondType>(arr).value_as_duration(row)
+        }
+        TimeUnit::Microsecond => {
+            as_primitive_array::<DurationMicrosecondType>(arr).value_as_duration(row)
+        }
+        TimeUnit::Nanosecond => {
+            as_primitive_array::<DurationNanosecondType>(arr).value_as_duration(row)
+        }
     }
 }

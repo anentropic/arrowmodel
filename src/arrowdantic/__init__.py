@@ -182,10 +182,16 @@ class ArrowModelConverter:
         field_specs = self._resolve_columns(data.schema)
 
         if hasattr(data, "to_batches"):
-            # Table input: delegate to Rust convert_table
+            # Table input: delegate to Rust convert_table (fast or validated)
+            if self._validate:
+                return _core.convert_table_validated(data, self._model_class, field_specs)
             return _core.convert_table(data, self._model_class, field_specs)
         else:
-            # RecordBatch input: delegate to Rust convert_record_batch
+            # RecordBatch input: delegate to Rust convert_record_batch (fast or validated)
+            if self._validate:
+                return _core.convert_record_batch_validated(
+                    data, self._model_class, field_specs
+                )
             return _core.convert_record_batch(data, self._model_class, field_specs)
 
 

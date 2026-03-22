@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pyarrow as pa
-import pytest
 
 PROJECT_ROOT = Path(__file__).parent.parent
 

@@ -66,6 +66,26 @@
 - [x] **CPLX-04**: Dictionary(key, value) → value type (decode indices to values, handle all key types)
 - [x] **CPLX-05**: Null type → `None` always
 
+### Extended Types (Phase 6)
+
+- [x] **EXT-FLOAT16**: Float16 -> `float` (upcast to f32 for Python compatibility)
+- [x] **EXT-DEC128**: Decimal128 -> `decimal.Decimal` (precision preserved via string representation)
+- [x] **EXT-DEC256**: Decimal256 -> `decimal.Decimal` (precision preserved via string representation)
+- [x] **EXT-DEC32**: Decimal32 -> `decimal.Decimal` (precision preserved via string representation)
+- [x] **EXT-DEC64**: Decimal64 -> `decimal.Decimal` (precision preserved via string representation)
+- [x] **EXT-DATE64**: Date64 -> `datetime.datetime` (millisecond-epoch to datetime)
+- [x] **EXT-TIME32**: Time32 (second/millisecond) -> `datetime.time`
+- [x] **EXT-TIME64**: Time64 (microsecond/nanosecond) -> `datetime.time` (ns truncated to us)
+- [x] **EXT-INTERVAL**: Interval (YearMonth/DayTime/MonthDayNano) -> `tuple[int, int, int]` (months, days, nanos)
+- [x] **EXT-BINARY**: Binary/LargeBinary -> `bytes`
+- [x] **EXT-FSBINARY**: FixedSizeBinary -> `bytes`
+- [x] **EXT-UTF8VIEW**: Utf8View -> `str` (identical to Utf8 path)
+- [x] **EXT-BINVIEW**: BinaryView -> `bytes` (identical to Binary path)
+- [x] **EXT-FSLIST**: FixedSizeList -> `list` (recursive element type handling)
+- [x] **EXT-MAP**: Map -> `list[tuple[K, V]]` (key-value pair extraction)
+- [x] **EXT-REE**: RunEndEncoded -> transparently pre-unpacked to underlying value type
+- [x] **EXT-UNION**: Union (sparse + dense) -> active variant's value per row
+
 ### Input Types
 
 - [x] **INPUT-01**: Accept pyarrow `RecordBatch` as input
@@ -82,7 +102,7 @@
 
 ## v2 Requirements
 
-### Extended Types
+### Extended Types (Future)
 
 - **EXT-01**: `FixedSizeList<T, N>` mapping (needs resolution heuristic: list vs tuple vs ndarray)
 - **EXT-02**: `Utf8View` / `BinaryView` support (arrow-rs 52+)
@@ -154,12 +174,29 @@
 | API-03 | Phase 3 | Complete |
 | API-04 | Phase 5 | Complete |
 | API-05 | Phase 5 | Complete |
+| EXT-FLOAT16 | Phase 6 | Complete |
+| EXT-DEC128 | Phase 6 | Complete |
+| EXT-DEC256 | Phase 6 | Complete |
+| EXT-DEC32 | Phase 6 | Complete |
+| EXT-DEC64 | Phase 6 | Complete |
+| EXT-DATE64 | Phase 6 | Complete |
+| EXT-TIME32 | Phase 6 | Complete |
+| EXT-TIME64 | Phase 6 | Complete |
+| EXT-INTERVAL | Phase 6 | Complete |
+| EXT-BINARY | Phase 6 | Complete |
+| EXT-FSBINARY | Phase 6 | Complete |
+| EXT-UTF8VIEW | Phase 6 | Complete |
+| EXT-BINVIEW | Phase 6 | Complete |
+| EXT-FSLIST | Phase 6 | Complete |
+| EXT-MAP | Phase 6 | Complete |
+| EXT-REE | Phase 6 | Complete |
+| EXT-UNION | Phase 6 | Complete |
 
 **Coverage:**
-- v1 requirements: 42 total
-- Mapped to phases: 42
+- v1 requirements: 59 total
+- Mapped to phases: 59
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-21*
-*Last updated: 2026-03-21 after roadmap revision (Phase 2 split into Spike & Benchmark + Core Conversion)*
+*Last updated: 2026-03-22 after Phase 6 gap closure (added 17 EXT-* requirement definitions)*

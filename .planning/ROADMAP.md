@@ -17,7 +17,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Core Conversion** - Alias resolution, schema error handling, Table input, convenience API, and pre-interned strings
 - [ ] **Phase 4: Extended Types** - Temporal types, lists, structs, dictionary arrays, and null type
 - [ ] **Phase 5: Validated Path and API Polish** - Opt-in Pydantic validation, iterator API, and type stubs
-- [ ] **Phase 6: Support All PyArrow Types** - Float16, Decimal, Date64, Time, Interval, Binary, Views, FixedSizeList, Map, REE, Union (gap closure in progress)
+- [x] **Phase 6: Support All PyArrow Types** - Float16, Decimal, Date64, Time, Interval, Binary, Views, FixedSizeList, Map, REE, Union (completed 2026-03-22)
+- [ ] **Phase 7: Test Coverage and API Completeness** - Close tech debt: missing interval subtype tests, validated path tests for 7 types, iter_arrow validated test, from_arrow validate parameter
 
 ## Phase Details
 
@@ -116,10 +117,20 @@ Plans:
 - [x] 06-03-PLAN.md -- Gap closure: Fix REE bug in convert_table/convert_table_validated, add Decimal32/64 test coverage
 - [x] 06-04-PLAN.md -- Gap closure: Add Phase 6 requirement IDs to REQUIREMENTS.md traceability
 
+### Phase 7: Test Coverage and API Completeness
+**Goal:** Close all tech debt from milestone audit: add missing test coverage for interval subtypes, validated path tests for 7 types, and add `validate` parameter to `from_arrow()` for API symmetry
+**Depends on:** Phase 6
+**Requirements**: DEBT-01, DEBT-02, DEBT-03, DEBT-04
+**Gap Closure:** Closes tech debt from v1.0 milestone audit
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 7 to break down)
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -128,4 +139,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 3. Core Conversion | 2/2 | Complete    | 2026-03-22 |
 | 4. Extended Types | 0/2 | In Progress | - |
 | 5. Validated Path and API Polish | 1/2 | In Progress|  |
-| 6. Support All PyArrow Types | 2/4 | Gap Closure | - |
+| 6. Support All PyArrow Types | 4/4 | Complete | 2026-03-22 |
+| 7. Test Coverage and API Completeness | 0/0 | Pending | - |

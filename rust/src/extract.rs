@@ -1,22 +1,25 @@
 use arrow_array::{
     cast::{
-        as_boolean_array, as_largestring_array, as_primitive_array, as_string_array,
-        as_list_array, as_large_list_array, as_struct_array,
+        as_boolean_array, as_fixed_size_list_array, as_largestring_array, as_list_array,
+        as_large_list_array, as_map_array, as_primitive_array, as_string_array, as_struct_array,
+        as_union_array,
     },
     types::{
         Date32Type, Date64Type, DurationMicrosecondType, DurationMillisecondType,
         DurationNanosecondType, DurationSecondType, Float16Type, Float32Type, Float64Type,
-        Int16Type, Int32Type, Int64Type, Int8Type, Time32MillisecondType, Time32SecondType,
-        Time64MicrosecondType, Time64NanosecondType, TimestampMicrosecondType,
-        TimestampMillisecondType, TimestampNanosecondType, TimestampSecondType, UInt16Type,
-        UInt32Type, UInt64Type, UInt8Type,
+        Int16Type, Int32Type, Int64Type, Int8Type, IntervalDayTimeType, IntervalMonthDayNanoType,
+        IntervalYearMonthType, Time32MillisecondType, Time32SecondType, Time64MicrosecondType,
+        Time64NanosecondType, TimestampMicrosecondType, TimestampMillisecondType,
+        TimestampNanosecondType, TimestampSecondType, UInt16Type, UInt32Type, UInt64Type,
+        UInt8Type,
     },
-    Array, BinaryArray, BinaryViewArray, BooleanArray, FixedSizeBinaryArray, LargeBinaryArray,
-    LargeStringArray, ListArray, LargeListArray, StringArray, StringViewArray, StructArray,
+    Array, BinaryArray, BinaryViewArray, BooleanArray, FixedSizeBinaryArray, FixedSizeListArray,
+    LargeBinaryArray, LargeStringArray, ListArray, LargeListArray, MapArray, StringArray,
+    StringViewArray, StructArray, UnionArray,
 };
-use arrow_schema::{DataType, TimeUnit};
+use arrow_schema::{DataType, IntervalUnit, TimeUnit};
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyDateTime, PyDict, PyList, PyString, PyTime, PyTzInfo};
+use pyo3::types::{PyBytes, PyDateTime, PyDict, PyList, PyString, PyTime, PyTuple, PyTzInfo};
 use serde_json::{Map, Number, Value};
 
 type PyObject = Py<PyAny>;
@@ -72,6 +75,15 @@ pub enum ColumnExtractor<'a> {
     // View types
     Utf8View(&'a StringViewArray),
     BinaryView(&'a BinaryViewArray),
+    // Interval types
+    IntervalYearMonth(&'a arrow_array::IntervalYearMonthArray),
+    IntervalDayTime(&'a arrow_array::IntervalDayTimeArray),
+    IntervalMonthDayNano(&'a arrow_array::IntervalMonthDayNanoArray),
+    // Container types
+    FixedSizeList(&'a FixedSizeListArray, DataType),
+    Map(&'a MapArray, DataType, DataType),
+    // Union type
+    Union(&'a UnionArray, Vec<(i8, DataType)>),
     // Null type -- always returns None
     Null,
 }
@@ -230,6 +242,47 @@ pub fn prepare_extractor<'a>(
                 .expect("BinaryViewArray"),
         )),
         DataType::Null => Ok(ColumnExtractor::Null),
+        // Interval types
+        DataType::Interval(IntervalUnit::YearMonth) => Ok(ColumnExtractor::IntervalYearMonth(
+            as_primitive_array::<IntervalYearMonthType>(col),
+        )),
+        DataType::Interval(IntervalUnit::DayTime) => Ok(ColumnExtractor::IntervalDayTime(
+            as_primitive_array::<IntervalDayTimeType>(col),
+        )),
+        DataType::Interval(IntervalUnit::MonthDayNano) => {
+            Ok(ColumnExtractor::IntervalMonthDayNano(
+                as_primitive_array::<IntervalMonthDayNanoType>(col),
+            ))
+        }
+        // Container types
+        DataType::FixedSizeList(field, _size) => {
+            let arr = as_fixed_size_list_array(col);
+            Ok(ColumnExtractor::FixedSizeList(
+                arr,
+                field.data_type().clone(),
+            ))
+        }
+        DataType::Map(entries_field, _sorted) => {
+            let arr = as_map_array(col);
+            if let DataType::Struct(fields) = entries_field.data_type() {
+                let key_dt = fields[0].data_type().clone();
+                let val_dt = fields[1].data_type().clone();
+                Ok(ColumnExtractor::Map(arr, key_dt, val_dt))
+            } else {
+                Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                    "Map entries field is not a Struct",
+                ))
+            }
+        }
+        // Union type
+        DataType::Union(union_fields, _mode) => {
+            let arr = as_union_array(col);
+            let type_map: Vec<(i8, DataType)> = union_fields
+                .iter()
+                .map(|(tid, field)| (tid, field.data_type().clone()))
+                .collect();
+            Ok(ColumnExtractor::Union(arr, type_map))
+        }
         _ => Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
             "Unsupported Arrow type: {data_type:?}"
         ))),
@@ -566,6 +619,111 @@ impl<'a> ColumnExtractor<'a> {
                     Ok(py.None())
                 } else {
                     Ok(PyBytes::new(py, arr.value(row)).into_any().unbind())
+                }
+            }
+            // --- Interval types ---
+            ColumnExtractor::IntervalYearMonth(arr) => {
+                if arr.is_null(row) {
+                    Ok(py.None())
+                } else {
+                    let months = arr.value(row) as i64;
+                    let tuple = PyTuple::new(py, &[
+                        months.into_pyobject(py)?.into_any().unbind(),
+                        0i64.into_pyobject(py)?.into_any().unbind(),
+                        0i64.into_pyobject(py)?.into_any().unbind(),
+                    ])?;
+                    Ok(tuple.into_any().unbind())
+                }
+            }
+            ColumnExtractor::IntervalDayTime(arr) => {
+                if arr.is_null(row) {
+                    Ok(py.None())
+                } else {
+                    let val = arr.value(row);
+                    let (days, ms) = IntervalDayTimeType::to_parts(val);
+                    let nanos = (ms as i64) * 1_000_000;
+                    let tuple = PyTuple::new(py, &[
+                        0i64.into_pyobject(py)?.into_any().unbind(),
+                        (days as i64).into_pyobject(py)?.into_any().unbind(),
+                        nanos.into_pyobject(py)?.into_any().unbind(),
+                    ])?;
+                    Ok(tuple.into_any().unbind())
+                }
+            }
+            ColumnExtractor::IntervalMonthDayNano(arr) => {
+                if arr.is_null(row) {
+                    Ok(py.None())
+                } else {
+                    let val = arr.value(row);
+                    let months = val.months as i64;
+                    let days = val.days as i64;
+                    let nanos = val.nanoseconds;
+                    let tuple = PyTuple::new(py, &[
+                        months.into_pyobject(py)?.into_any().unbind(),
+                        days.into_pyobject(py)?.into_any().unbind(),
+                        nanos.into_pyobject(py)?.into_any().unbind(),
+                    ])?;
+                    Ok(tuple.into_any().unbind())
+                }
+            }
+            // --- Container types ---
+            ColumnExtractor::FixedSizeList(arr, child_dt) => {
+                if arr.is_null(row) {
+                    Ok(py.None())
+                } else {
+                    let child_array = arr.value(row);
+                    let len = child_array.len();
+                    let child_ext =
+                        prepare_extractor(py, child_array.as_ref(), child_dt, None)?;
+                    let mut items: Vec<PyObject> = Vec::with_capacity(len);
+                    for j in 0..len {
+                        items.push(child_ext.extract_value(py, j)?);
+                    }
+                    Ok(PyList::new(py, &items)?.into_any().unbind())
+                }
+            }
+            ColumnExtractor::Map(arr, key_dt, val_dt) => {
+                if arr.is_null(row) {
+                    Ok(py.None())
+                } else {
+                    let entries = arr.value(row);
+                    let keys_arr = entries.column(0);
+                    let vals_arr = entries.column(1);
+                    let key_ext = prepare_extractor(py, keys_arr.as_ref(), key_dt, None)?;
+                    let val_ext = prepare_extractor(py, vals_arr.as_ref(), val_dt, None)?;
+                    let len = entries.len();
+                    let mut items: Vec<PyObject> = Vec::with_capacity(len);
+                    for j in 0..len {
+                        let k = key_ext.extract_value(py, j)?;
+                        let v = val_ext.extract_value(py, j)?;
+                        let pair = PyTuple::new(py, &[k, v])?;
+                        items.push(pair.into_any().unbind());
+                    }
+                    Ok(PyList::new(py, &items)?.into_any().unbind())
+                }
+            }
+            // --- Union type ---
+            ColumnExtractor::Union(arr, type_map) => {
+                if arr.is_null(row) {
+                    Ok(py.None())
+                } else {
+                    let tid = arr.type_id(row);
+                    let child = arr.child(tid);
+                    let child_idx = match arr.offsets() {
+                        Some(_) => arr.value_offset(row) as usize, // Dense
+                        None => row,                                 // Sparse
+                    };
+                    let child_dt = type_map
+                        .iter()
+                        .find(|(id, _)| *id == tid)
+                        .map(|(_, dt)| dt)
+                        .ok_or_else(|| {
+                            PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
+                                "Unknown union type_id: {tid}"
+                            ))
+                        })?;
+                    let child_ext = prepare_extractor(py, child.as_ref(), child_dt, None)?;
+                    child_ext.extract_value(py, child_idx)
                 }
             }
             // Null type -- always returns None unconditionally.
@@ -977,6 +1135,107 @@ impl<'a> ColumnExtractor<'a> {
                     let encoded =
                         base64::engine::general_purpose::STANDARD.encode(arr.value(row));
                     Ok(Value::String(encoded))
+                }
+            }
+            // --- Interval types ---
+            ColumnExtractor::IntervalYearMonth(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    let months = arr.value(row) as i64;
+                    Ok(Value::Array(vec![
+                        Value::Number(Number::from(months)),
+                        Value::Number(Number::from(0i64)),
+                        Value::Number(Number::from(0i64)),
+                    ]))
+                }
+            }
+            ColumnExtractor::IntervalDayTime(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    let val = arr.value(row);
+                    let (days, ms) = IntervalDayTimeType::to_parts(val);
+                    let nanos = (ms as i64) * 1_000_000;
+                    Ok(Value::Array(vec![
+                        Value::Number(Number::from(0i64)),
+                        Value::Number(Number::from(days as i64)),
+                        Value::Number(Number::from(nanos)),
+                    ]))
+                }
+            }
+            ColumnExtractor::IntervalMonthDayNano(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    let val = arr.value(row);
+                    let months = val.months as i64;
+                    let days = val.days as i64;
+                    let nanos = val.nanoseconds;
+                    Ok(Value::Array(vec![
+                        Value::Number(Number::from(months)),
+                        Value::Number(Number::from(days)),
+                        Value::Number(Number::from(nanos)),
+                    ]))
+                }
+            }
+            // --- Container types ---
+            ColumnExtractor::FixedSizeList(arr, child_dt) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    let child_array = arr.value(row);
+                    let len = child_array.len();
+                    let child_ext =
+                        prepare_extractor(py, child_array.as_ref(), child_dt, None)?;
+                    let mut items: Vec<Value> = Vec::with_capacity(len);
+                    for j in 0..len {
+                        items.push(child_ext.extract_json_value(py, j)?);
+                    }
+                    Ok(Value::Array(items))
+                }
+            }
+            ColumnExtractor::Map(arr, key_dt, val_dt) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    let entries = arr.value(row);
+                    let keys_arr = entries.column(0);
+                    let vals_arr = entries.column(1);
+                    let key_ext = prepare_extractor(py, keys_arr.as_ref(), key_dt, None)?;
+                    let val_ext = prepare_extractor(py, vals_arr.as_ref(), val_dt, None)?;
+                    let len = entries.len();
+                    let mut items: Vec<Value> = Vec::with_capacity(len);
+                    for j in 0..len {
+                        let k = key_ext.extract_json_value(py, j)?;
+                        let v = val_ext.extract_json_value(py, j)?;
+                        items.push(Value::Array(vec![k, v]));
+                    }
+                    Ok(Value::Array(items))
+                }
+            }
+            // --- Union type ---
+            ColumnExtractor::Union(arr, type_map) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    let tid = arr.type_id(row);
+                    let child = arr.child(tid);
+                    let child_idx = match arr.offsets() {
+                        Some(_) => arr.value_offset(row) as usize, // Dense
+                        None => row,                                 // Sparse
+                    };
+                    let child_dt = type_map
+                        .iter()
+                        .find(|(id, _)| *id == tid)
+                        .map(|(_, dt)| dt)
+                        .ok_or_else(|| {
+                            PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
+                                "Unknown union type_id: {tid}"
+                            ))
+                        })?;
+                    let child_ext = prepare_extractor(py, child.as_ref(), child_dt, None)?;
+                    child_ext.extract_json_value(py, child_idx)
                 }
             }
             ColumnExtractor::Null => Ok(Value::Null),

@@ -30,6 +30,13 @@ fn unpack_columns(
                         ))
                     })
                 }
+                DataType::RunEndEncoded(_, value_field) => {
+                    arrow_cast::cast(col.as_ref(), value_field.data_type()).map_err(|e| {
+                        PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
+                            "Failed to unpack run-end encoded array: {e}"
+                        ))
+                    })
+                }
                 _ => Ok(col.clone()),
             }
         })
@@ -94,6 +101,7 @@ mod _core {
                 // For dictionary columns, use the value type for the extractor
                 let effective_dt = match dt {
                     DataType::Dictionary(_, value_type) => value_type.as_ref(),
+                    DataType::RunEndEncoded(_, value_field) => value_field.data_type(),
                     other => other,
                 };
                 extract::prepare_extractor(
@@ -233,6 +241,7 @@ mod _core {
                 let dt = schema.field(orig_idx).data_type();
                 let effective_dt = match dt {
                     DataType::Dictionary(_, value_type) => value_type.as_ref(),
+                    DataType::RunEndEncoded(_, value_field) => value_field.data_type(),
                     other => other,
                 };
                 extract::prepare_extractor(

@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 03-02-PLAN.md
-last_updated: "2026-03-22T02:21:51.374Z"
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-03-22T11:14:18.780Z"
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 8
+  completed_plans: 7
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Dict-free, single-step conversion from Arrow buffers to Pydantic model instances
-**Current focus:** Phase 03 — core-conversion
+**Current focus:** Phase 04 — extended-types
 
 ## Current Position
 
-Phase: 4
-Plan: Not started
+Phase: 04 (extended-types) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Plan: Not started
 | Phase 02 P02 | 4min | 2 tasks | 5 files |
 | Phase 03-core-conversion P01 | 5min | 2 tasks | 2 files |
 | Phase 03-core-conversion P02 | 4min | 2 tasks | 3 files |
+| Phase 04-extended-types P01 | 5min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,9 @@ Recent decisions affecting current work:
 - [Phase 03-core-conversion]: Duck-type dispatch (hasattr to_batches) for Table vs RecordBatch to avoid pyarrow runtime dep
 - [Phase 03-core-conversion]: convert_table interns field name strings once, shares across all batches (FAST-02)
 - [Phase 03-core-conversion]: from_arrow creates temporary ArrowModelConverter -- one-shot use, no caching
+- [Phase 04-extended-types]: Enable pyo3 chrono feature for automatic NaiveDate/NaiveDateTime/TimeDelta -> Python datetime conversion
+- [Phase 04-extended-types]: Pre-unpack dictionary columns in lib.rs before building extractors to solve lifetime ownership
+- [Phase 04-extended-types]: Cache ZoneInfo per batch in TimestampAware variant, not per row
 
 ### Pending Todos
 
@@ -92,6 +96,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-22T02:18:13.121Z
-Stopped at: Completed 03-02-PLAN.md
+Last session: 2026-03-22T11:14:18.778Z
+Stopped at: Completed 04-01-PLAN.md
 Resume file: None

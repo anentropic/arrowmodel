@@ -76,7 +76,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 04-01-PLAN.md -- Temporal types (Date32, Timestamp, Duration), dictionary array unpacking, and null type support
+- [x] 04-01-PLAN.md -- Temporal types (Date32, Timestamp, Duration), dictionary array unpacking, and null type support
 - [ ] 04-02-PLAN.md -- List, LargeList, and Struct type support with nested model class passing API
 
 ### Phase 5: Validated Path and API Polish

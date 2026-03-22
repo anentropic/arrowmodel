@@ -52,19 +52,19 @@
 
 ### Temporal Types
 
-- [ ] **TEMP-01**: Date32 → `datetime.date`
-- [ ] **TEMP-02**: Timestamp (no timezone) → naive `datetime.datetime`
-- [ ] **TEMP-03**: Timestamp (with timezone) → aware `datetime.datetime`
-- [ ] **TEMP-04**: Duration → `datetime.timedelta`
-- [ ] **TEMP-05**: Nanosecond timestamps truncated to microsecond precision (Python's max)
+- [x] **TEMP-01**: Date32 → `datetime.date`
+- [x] **TEMP-02**: Timestamp (no timezone) → naive `datetime.datetime`
+- [x] **TEMP-03**: Timestamp (with timezone) → aware `datetime.datetime`
+- [x] **TEMP-04**: Duration → `datetime.timedelta`
+- [x] **TEMP-05**: Nanosecond timestamps truncated to microsecond precision (Python's max)
 
 ### Complex Types
 
 - [ ] **CPLX-01**: List → `list` with recursive type handling for element type
 - [ ] **CPLX-02**: LargeList → `list` (same handling as List)
 - [ ] **CPLX-03**: Struct → nested Pydantic `BaseModel` via recursive `ArrowModelConverter`
-- [ ] **CPLX-04**: Dictionary(key, value) → value type (decode indices to values, handle all key types)
-- [ ] **CPLX-05**: Null type → `None` always
+- [x] **CPLX-04**: Dictionary(key, value) → value type (decode indices to values, handle all key types)
+- [x] **CPLX-05**: Null type → `None` always
 
 ### Input Types
 
@@ -136,16 +136,16 @@
 | NULL-01 | Phase 2 | Complete |
 | NULL-02 | Phase 2 | Complete |
 | NULL-03 | Phase 2 | Complete |
-| TEMP-01 | Phase 4 | Pending |
-| TEMP-02 | Phase 4 | Pending |
-| TEMP-03 | Phase 4 | Pending |
-| TEMP-04 | Phase 4 | Pending |
-| TEMP-05 | Phase 4 | Pending |
+| TEMP-01 | Phase 4 | Complete |
+| TEMP-02 | Phase 4 | Complete |
+| TEMP-03 | Phase 4 | Complete |
+| TEMP-04 | Phase 4 | Complete |
+| TEMP-05 | Phase 4 | Complete |
 | CPLX-01 | Phase 4 | Pending |
 | CPLX-02 | Phase 4 | Pending |
 | CPLX-03 | Phase 4 | Pending |
-| CPLX-04 | Phase 4 | Pending |
-| CPLX-05 | Phase 4 | Pending |
+| CPLX-04 | Phase 4 | Complete |
+| CPLX-05 | Phase 4 | Complete |
 | INPUT-01 | Phase 2 | Complete |
 | INPUT-02 | Phase 3 | Complete |
 | INPUT-03 | Phase 1 | Complete |

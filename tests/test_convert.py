@@ -78,7 +78,7 @@ class TestSchemaMapping:
         """SCHEMA-01: ValueError when Arrow schema lacks a required model field."""
         batch = pa.record_batch({"x": [1, 2, 3]})
         converter = ArrowModelConverter(MixedModel)
-        with pytest.raises(ValueError, match="Arrow schema has no column"):
+        with pytest.raises(ValueError, match="missing required columns"):
             converter.convert(batch)
 
     def test_mapping_reuse_across_batches(self, mixed_batch: pa.RecordBatch) -> None:

@@ -1,7 +1,7 @@
 """
-Conversion correctness tests for Phase 2 requirements.
+Conversion correctness tests.
 
-Covers all 15 Phase 2 requirement IDs:
+Covers Phase 2-4 requirement IDs:
 - SCHEMA-01, SCHEMA-02: Schema cross-referencing
 - TYPE-01 through TYPE-05: Primitive type conversions
 - NULL-01 through NULL-03: Null handling
@@ -9,9 +9,15 @@ Covers all 15 Phase 2 requirement IDs:
 - FAST-03: Direct Arrow buffer extraction
 - INPUT-01: RecordBatch input
 - API-01, API-02: Public API contract
+- TEMP-01 through TEMP-05: Temporal type conversions
+- CPLX-04: Dictionary array decoding
+- CPLX-05: Null type handling
 """
 
 from __future__ import annotations
+
+import datetime
+from zoneinfo import ZoneInfo
 
 import pyarrow as pa
 import pytest
@@ -666,3 +672,190 @@ class TestStringInterning:
         # doesn't change correctness, but validates the code path).
         assert results[0].id == 0
         assert results[99].id == 99
+
+
+# ---------------------------------------------------------------------------
+# Phase 4 Plan 1: Temporal, dictionary, and null type models and tests
+# ---------------------------------------------------------------------------
+
+
+class DateModel(BaseModel):
+    event_date: datetime.date | None = None
+
+
+class TimestampModel(BaseModel):
+    created_at: datetime.datetime | None = None
+
+
+class DurationModel(BaseModel):
+    elapsed: datetime.timedelta | None = None
+
+
+class DictStringModel(BaseModel):
+    category: str
+
+
+class DictIntModel(BaseModel):
+    code: int
+
+
+class NullFieldModel(BaseModel):
+    id: int
+    nothing: None = None
+
+
+class TestTemporalTypes:
+    """Tests for TEMP-01 through TEMP-05: Temporal type conversions."""
+
+    def test_date32(self, date32_batch: pa.RecordBatch) -> None:
+        """TEMP-01: Date32 column produces datetime.date values."""
+        results = ArrowModelConverter(DateModel).convert(date32_batch)
+        assert len(results) == 3
+        assert results[0].event_date == datetime.date(2024, 1, 15)
+        assert results[1].event_date is None
+        assert results[2].event_date == datetime.date(2020, 6, 30)
+        assert isinstance(results[0].event_date, datetime.date)
+
+    def test_timestamp_naive_microsecond(
+        self, timestamp_us_batch: pa.RecordBatch
+    ) -> None:
+        """TEMP-02: Timestamp(us, None) produces naive datetime.datetime."""
+        results = ArrowModelConverter(TimestampModel).convert(timestamp_us_batch)
+        assert len(results) == 3
+        assert results[0].created_at == datetime.datetime(
+            2024, 1, 15, 10, 30, 0, 123456
+        )
+        assert results[0].created_at.tzinfo is None
+        assert results[1].created_at is None
+        assert results[2].created_at == datetime.datetime(
+            2020, 6, 30, 23, 59, 59, 999999
+        )
+
+    def test_timestamp_naive_second(self) -> None:
+        """TEMP-02: Timestamp(s, None) produces naive datetime with zero microseconds."""
+        batch = pa.record_batch(
+            {
+                "created_at": pa.array(
+                    [datetime.datetime(2024, 1, 15, 10, 30, 0)],
+                    type=pa.timestamp("s"),
+                ),
+            }
+        )
+        results = ArrowModelConverter(TimestampModel).convert(batch)
+        assert results[0].created_at == datetime.datetime(2024, 1, 15, 10, 30, 0)
+        assert results[0].created_at.microsecond == 0
+
+    def test_timestamp_aware(self) -> None:
+        """TEMP-03: Timestamp with UTC timezone produces aware datetime."""
+        batch = pa.record_batch(
+            {
+                "created_at": pa.array(
+                    [datetime.datetime(2024, 1, 15, 10, 30, 0)],
+                    type=pa.timestamp("us", tz="UTC"),
+                ),
+            }
+        )
+        results = ArrowModelConverter(TimestampModel).convert(batch)
+        assert results[0].created_at is not None
+        assert results[0].created_at.tzinfo is not None
+        assert results[0].created_at.tzname() is not None
+
+    def test_timestamp_aware_iana(
+        self, timestamp_tz_batch: pa.RecordBatch
+    ) -> None:
+        """TEMP-03: Timestamp with IANA timezone preserves ZoneInfo."""
+        results = ArrowModelConverter(TimestampModel).convert(timestamp_tz_batch)
+        assert results[0].created_at is not None
+        assert results[0].created_at.tzinfo is not None
+        assert results[0].created_at.tzinfo == ZoneInfo("America/New_York")
+
+    def test_nanosecond_truncation(
+        self, timestamp_ns_batch: pa.RecordBatch
+    ) -> None:
+        """TEMP-05: Nanosecond timestamp truncates to microsecond precision."""
+        results = ArrowModelConverter(TimestampModel).convert(timestamp_ns_batch)
+        assert len(results) == 1
+        assert isinstance(results[0].created_at, datetime.datetime)
+        # Nanosecond precision should be truncated -- no sub-microsecond data
+        dt = results[0].created_at
+        assert dt.microsecond < 1_000_000
+
+    def test_duration(self, duration_batch: pa.RecordBatch) -> None:
+        """TEMP-04: Duration(us) produces datetime.timedelta values."""
+        results = ArrowModelConverter(DurationModel).convert(duration_batch)
+        assert len(results) == 3
+        assert results[0].elapsed == datetime.timedelta(hours=1)
+        assert results[1].elapsed is None
+        assert results[2].elapsed == datetime.timedelta(seconds=1)
+
+
+class TestDictionaryType:
+    """Tests for CPLX-04: Dictionary-encoded column decoding."""
+
+    def test_dictionary_string(self, dict_string_batch: pa.RecordBatch) -> None:
+        """CPLX-04: Dictionary(Int32, Utf8) resolves to str values."""
+        results = ArrowModelConverter(DictStringModel).convert(dict_string_batch)
+        assert len(results) == 3
+        assert results[0].category == "a"
+        assert results[1].category == "b"
+        assert results[2].category == "a"
+        assert isinstance(results[0].category, str)
+
+    def test_dictionary_int(self, dict_int_batch: pa.RecordBatch) -> None:
+        """CPLX-04: Dictionary(Int8, Int64) resolves to int values."""
+        results = ArrowModelConverter(DictIntModel).convert(dict_int_batch)
+        assert len(results) == 3
+        assert results[0].code == 100
+        assert results[1].code == 200
+        assert results[2].code == 100
+
+    def test_dictionary_with_nulls(self) -> None:
+        """CPLX-04: Dictionary column with null entries produces None."""
+
+        class DictNullableModel(BaseModel):
+            category: str | None = None
+
+        batch = pa.record_batch(
+            {
+                "category": pa.array(["a", None, "b"]).dictionary_encode(),
+            }
+        )
+        results = ArrowModelConverter(DictNullableModel).convert(batch)
+        assert len(results) == 3
+        assert results[0].category == "a"
+        assert results[1].category is None
+        assert results[2].category == "b"
+
+
+class TestNullType:
+    """Tests for CPLX-05: Null type column handling."""
+
+    def test_null_type(self) -> None:
+        """CPLX-05: Null type column produces None for every row."""
+        batch = pa.record_batch(
+            {
+                "id": pa.array([1, 2, 3], type=pa.int64()),
+                "nothing": pa.array([None, None, None], type=pa.null()),
+            }
+        )
+        results = ArrowModelConverter(NullFieldModel).convert(batch)
+        assert len(results) == 3
+        assert results[0].id == 1
+        assert results[0].nothing is None
+        assert results[1].id == 2
+        assert results[1].nothing is None
+        assert results[2].id == 3
+        assert results[2].nothing is None
+
+    def test_null_type_all_rows_none(self) -> None:
+        """CPLX-05: Every row in a null-typed column returns None."""
+        batch = pa.record_batch(
+            {
+                "id": pa.array([10, 20], type=pa.int64()),
+                "nothing": pa.array([None, None], type=pa.null()),
+            }
+        )
+        results = ArrowModelConverter(NullFieldModel).convert(batch)
+        assert len(results) == 2
+        for result in results:
+            assert result.nothing is None

@@ -92,7 +92,7 @@ Plans:
 
 Plans:
 - [x] 05-01-PLAN.md -- Validated conversion path: serde_json row serialization in Rust + model_validate_json
-- [ ] 05-02-PLAN.md -- Iterator API, type stubs, and basedpyright suppression removal
+- [x] 05-02-PLAN.md -- Iterator API, type stubs, and basedpyright suppression removal
 
 ## Progress
 

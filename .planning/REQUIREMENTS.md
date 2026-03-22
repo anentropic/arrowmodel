@@ -77,8 +77,8 @@
 - [x] **API-01**: `ArrowModelConverter(Model, validate=False)` constructor
 - [x] **API-02**: `converter.convert(data)` returns `list[Model]`
 - [x] **API-03**: `from_arrow(Model, data)` convenience one-shot function
-- [ ] **API-04**: Iterator/generator API for lazy model yielding (memory-constrained large datasets)
-- [ ] **API-05**: Type stubs (`.pyi`) for the Rust extension module
+- [x] **API-04**: Iterator/generator API for lazy model yielding (memory-constrained large datasets)
+- [x] **API-05**: Type stubs (`.pyi`) for the Rust extension module
 
 ## v2 Requirements
 
@@ -152,8 +152,8 @@
 | API-01 | Phase 2 | Complete |
 | API-02 | Phase 2 | Complete |
 | API-03 | Phase 3 | Complete |
-| API-04 | Phase 5 | Pending |
-| API-05 | Phase 5 | Pending |
+| API-04 | Phase 5 | Complete |
+| API-05 | Phase 5 | Complete |
 
 **Coverage:**
 - v1 requirements: 42 total

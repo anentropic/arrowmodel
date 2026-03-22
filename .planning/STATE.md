@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 05-01-PLAN.md
-last_updated: "2026-03-22T12:42:19.882Z"
+stopped_at: Completed 05-02-PLAN.md
+last_updated: "2026-03-22T12:50:47.831Z"
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 10
-  completed_plans: 9
+  completed_plans: 10
 ---
 
 # Project State
@@ -55,6 +55,7 @@ Plan: 2 of 2
 | Phase 04-extended-types P01 | 5min | 2 tasks | 5 files |
 | Phase 04-extended-types P02 | 5min | 2 tasks | 5 files |
 | Phase 05-validated-path-and-api-polish P01 | 5min | 1 tasks | 4 files |
+| Phase 05 P02 | 5min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -93,6 +94,9 @@ Recent decisions affecting current work:
 - [Phase 05-validated-path-and-api-polish]: Validated path: serde_json row serialization -> PyBytes -> model_validate_json for full Pydantic validation
 - [Phase 05-validated-path-and-api-polish]: NaN/Infinity floats serialize as JSON null (not error) in validated path
 - [Phase 05-validated-path-and-api-polish]: Tz-aware timestamps append +00:00 in JSON for Pydantic to produce aware datetimes
+- [Phase 05]: Use typing.cast for Table/RecordBatch narrowing instead of isinstance (preserves duck-typing)
+- [Phase 05]: Scope pyarrow-stub pyright rules to tests/ via executionEnvironments (src/ fully strict)
+- [Phase 05]: Use Sequence in _core.pyi stubs for covariant field_specs parameter
 
 ### Pending Todos
 
@@ -104,6 +108,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-22T12:42:19.877Z
-Stopped at: Completed 05-01-PLAN.md
+Last session: 2026-03-22T12:50:47.829Z
+Stopped at: Completed 05-02-PLAN.md
 Resume file: None

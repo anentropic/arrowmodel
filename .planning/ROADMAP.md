@@ -87,11 +87,12 @@ Plans:
   1. `ArrowModelConverter(Model, validate=True)` passes each row through full Pydantic validation (serde_json serialization in Rust, then `model_validate_json`), and validation errors surface as Pydantic `ValidationError`
   2. An iterator/generator API yields model instances lazily without materializing the full list in memory
   3. Type stubs (`.pyi` file) exist for the `_core` extension module, providing IDE autocompletion and type checking for all public functions and classes
-  4. Basedpyright suppressions in `pyproject.toml` (`reportUnknownVariableType`, `reportUnknownMemberType`, `reportUnknownArgumentType`, `reportAttributeAccessIssue`) are removed and `prek run --all-files` passes cleanly
-**Plans**: TBD
+  4. Basedpyright suppressions in `pyproject.toml` (`reportUnknownVariableType`, `reportUnknownMemberType`, `reportUnknownArgumentType`, `reportAttributeAccessIssue`) are removed and `basedpyright` passes cleanly
+**Plans**: 2 plans
 
 Plans:
-- [ ] 05-01: TBD
+- [ ] 05-01-PLAN.md -- Validated conversion path: serde_json row serialization in Rust + model_validate_json
+- [ ] 05-02-PLAN.md -- Iterator API, type stubs, and basedpyright suppression removal
 
 ## Progress
 
@@ -104,4 +105,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 2. Spike & Benchmark | 2/2 | Complete    | 2026-03-22 |
 | 3. Core Conversion | 2/2 | Complete    | 2026-03-22 |
 | 4. Extended Types | 0/2 | In Progress | - |
-| 5. Validated Path and API Polish | 0/? | Not started | - |
+| 5. Validated Path and API Polish | 0/2 | Not started | - |

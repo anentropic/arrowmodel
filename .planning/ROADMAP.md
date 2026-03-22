@@ -42,10 +42,11 @@ Plans:
   1. `ArrowModelConverter(MyModel).convert(record_batch)` returns a list of `MyModel` instances with correct field values for int, uint, float, bool, and string columns, using field-name matching only (no alias resolution yet)
   2. Null values in Arrow columns produce `None` on the corresponding Pydantic field (value buffer at null indices is never read)
   3. A benchmark script comparing arrowdantic vs `to_pylist()` + `model_construct` demonstrates measurable speedup on a RecordBatch with 100k+ rows of primitive columns
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: TBD
+- [ ] 02-01-PLAN.md -- Implement Rust ColumnExtractor and convert_record_batch, create Python ArrowModelConverter wrapper
+- [ ] 02-02-PLAN.md -- Create conversion correctness tests and pytest-benchmark comparison script
 
 ### Phase 3: Core Conversion
 **Goal**: The full conversion API surface with alias resolution, schema mismatch errors, extra column handling, Table input, convenience function, and pre-interned string optimization
@@ -98,7 +99,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Build Foundation | 2/2 | Complete    | 2026-03-21 |
-| 2. Spike & Benchmark | 0/? | Not started | - |
+| 2. Spike & Benchmark | 0/2 | Not started | - |
 | 3. Core Conversion | 0/? | Not started | - |
 | 4. Extended Types | 0/? | Not started | - |
 | 5. Validated Path and API Polish | 0/? | Not started | - |

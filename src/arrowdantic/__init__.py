@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import typing
 from typing import TYPE_CHECKING
 
 from pydantic import AliasChoices, AliasPath, BaseModel
@@ -11,7 +12,30 @@ from arrowdantic import _core as _core
 if TYPE_CHECKING:
     import pyarrow as pa
 
-__all__ = ["ArrowModelConverter", "from_arrow", "_build_field_map", "_core"]
+__all__ = ["ArrowModelConverter", "from_arrow", "_build_field_map", "_get_nested_model", "_core"]
+
+
+def _get_nested_model(annotation: type | None) -> type[BaseModel] | None:
+    """Extract nested BaseModel class from a Pydantic field annotation.
+
+    Handles:
+    - Direct BaseModel subclass: ``NestedModel`` -> ``NestedModel``
+    - Optional[NestedModel] (Union[NestedModel, None]): -> ``NestedModel``
+    - Non-model types: -> ``None``
+    """
+    if annotation is None:
+        return None
+    # Direct BaseModel subclass
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        return annotation
+    # Optional[NestedModel] = Union[NestedModel, None]
+    origin = typing.get_origin(annotation)
+    if origin is typing.Union:
+        args = typing.get_args(annotation)
+        for arg in args:
+            if isinstance(arg, type) and issubclass(arg, BaseModel):
+                return arg
+    return None
 
 
 def _build_field_map(model_class: type[BaseModel]) -> dict[str, str]:
@@ -96,10 +120,13 @@ class ArrowModelConverter:
 
     def _resolve_columns(
         self, schema: pa.Schema
-    ) -> tuple[list[int], list[str]]:
+    ) -> list[tuple[int, str, type[BaseModel] | None]]:
         """Resolve Arrow column indices from schema using the field map.
 
-        Returns ``(col_indices, field_names)`` for Rust.
+        Returns ``field_specs``: list of ``(col_index, field_name, nested_model_cls)``
+        for Rust. ``nested_model_cls`` is non-None when the Pydantic field's
+        annotation is a BaseModel subclass (for Struct column conversion).
+
         Raises ValueError for missing required columns (SCHEMA-03).
         Extra Arrow columns are silently ignored (SCHEMA-04).
 
@@ -108,8 +135,7 @@ class ArrowModelConverter:
         A field is considered resolved if ANY of its lookup names match an
         Arrow column.
         """
-        col_indices: list[int] = []
-        field_names: list[str] = []
+        field_specs: list[tuple[int, str, type[BaseModel] | None]] = []
         # Track which Pydantic fields have been resolved (handles multiple
         # lookup names mapping to the same field, e.g. populate_by_name)
         resolved_fields: set[str] = set()
@@ -120,8 +146,10 @@ class ArrowModelConverter:
             col_idx = schema.get_field_index(lookup_name)
             if col_idx < 0:
                 continue
-            col_indices.append(col_idx)
-            field_names.append(field_name)
+            # Detect nested BaseModel for Struct columns
+            field_info = self._model_class.model_fields[field_name]
+            nested_model = _get_nested_model(field_info.annotation)
+            field_specs.append((col_idx, field_name, nested_model))
             resolved_fields.add(field_name)
 
         # Check for missing required fields
@@ -140,7 +168,7 @@ class ArrowModelConverter:
                 f"Available columns: {schema.names}"
             )
 
-        return col_indices, field_names
+        return field_specs
 
     def convert(self, data: pa.RecordBatch | pa.Table) -> list[BaseModel]:
         """Convert Arrow RecordBatch or Table to a list of Pydantic model instances.
@@ -151,18 +179,14 @@ class ArrowModelConverter:
         Per SCHEMA-03: Raises ValueError when required fields cannot be matched.
         Per SCHEMA-04: Extra Arrow columns silently ignored.
         """
-        col_indices, field_names = self._resolve_columns(data.schema)
+        field_specs = self._resolve_columns(data.schema)
 
         if hasattr(data, "to_batches"):
             # Table input: delegate to Rust convert_table
-            return _core.convert_table(
-                data, self._model_class, col_indices, field_names
-            )
+            return _core.convert_table(data, self._model_class, field_specs)
         else:
             # RecordBatch input: delegate to Rust convert_record_batch
-            return _core.convert_record_batch(
-                data, self._model_class, col_indices, field_names
-            )
+            return _core.convert_record_batch(data, self._model_class, field_specs)
 
 
 def from_arrow(

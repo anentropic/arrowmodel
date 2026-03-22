@@ -1,16 +1,19 @@
 use arrow_array::{
-    cast::{as_boolean_array, as_largestring_array, as_primitive_array, as_string_array},
+    cast::{
+        as_boolean_array, as_largestring_array, as_primitive_array, as_string_array,
+        as_list_array, as_large_list_array, as_struct_array,
+    },
     types::{
         Date32Type, DurationMicrosecondType, DurationMillisecondType, DurationNanosecondType,
         DurationSecondType, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
         TimestampMicrosecondType, TimestampMillisecondType, TimestampNanosecondType,
         TimestampSecondType, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
     },
-    Array, BooleanArray, LargeStringArray, StringArray,
+    Array, BooleanArray, LargeStringArray, ListArray, LargeListArray, StringArray, StructArray,
 };
 use arrow_schema::{DataType, TimeUnit};
 use pyo3::prelude::*;
-use pyo3::types::{PyDateTime, PyString, PyTzInfo};
+use pyo3::types::{PyDateTime, PyDict, PyList, PyString, PyTzInfo};
 
 type PyObject = Py<PyAny>;
 
@@ -36,6 +39,18 @@ pub enum ColumnExtractor<'a> {
     TimestampNaive(&'a dyn Array, TimeUnit),
     TimestampAware(&'a dyn Array, TimeUnit, PyObject),
     Duration(&'a dyn Array, TimeUnit),
+    // Complex types
+    /// List element extraction: stores child DataType to create temporary
+    /// extractors per row's sub-array (ListArray.value(i) returns new ArrayRef).
+    List(&'a ListArray, DataType),
+    /// LargeList: identical to List but uses i64 offsets.
+    LargeList(&'a LargeListArray, DataType),
+    /// Struct: child extractors (pre-built), interned field names, nested model class.
+    Struct(
+        &'a StructArray,
+        Vec<(Py<PyString>, ColumnExtractor<'a>)>,
+        PyObject, // nested Pydantic model class
+    ),
     // Null type -- always returns None
     Null,
 }
@@ -45,10 +60,14 @@ pub enum ColumnExtractor<'a> {
 ///
 /// Dictionary columns should be pre-unpacked before calling this function.
 /// See `unpack_dictionary_columns` in lib.rs.
+///
+/// `nested_model` is `Some(model_cls)` when the column is a Struct that should
+/// produce a nested Pydantic model instance. `None` for all other column types.
 pub fn prepare_extractor<'a>(
     py: Python<'_>,
     col: &'a dyn Array,
     data_type: &DataType,
+    nested_model: Option<&PyObject>,
 ) -> PyResult<ColumnExtractor<'a>> {
     match data_type {
         DataType::Int8 => Ok(ColumnExtractor::Int8(as_primitive_array::<Int8Type>(col))),
@@ -77,6 +96,34 @@ pub fn prepare_extractor<'a>(
             Ok(ColumnExtractor::TimestampAware(col, *unit, tz_obj))
         }
         DataType::Duration(unit) => Ok(ColumnExtractor::Duration(col, *unit)),
+        DataType::List(field) => {
+            let arr = as_list_array(col);
+            Ok(ColumnExtractor::List(arr, field.data_type().clone()))
+        }
+        DataType::LargeList(field) => {
+            let arr = as_large_list_array(col);
+            Ok(ColumnExtractor::LargeList(arr, field.data_type().clone()))
+        }
+        DataType::Struct(fields) => {
+            let model_cls = nested_model
+                .ok_or_else(|| {
+                    PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                        "Struct column requires a nested Pydantic model class",
+                    )
+                })?
+                .clone_ref(py);
+            let struct_arr = as_struct_array(col);
+            let mut children: Vec<(Py<PyString>, ColumnExtractor<'a>)> =
+                Vec::with_capacity(fields.len());
+            for (i, field) in fields.iter().enumerate() {
+                let child_col = struct_arr.column(i);
+                let child_ext =
+                    prepare_extractor(py, child_col.as_ref(), field.data_type(), None)?;
+                let field_name = PyString::intern(py, field.name()).unbind();
+                children.push((field_name, child_ext));
+            }
+            Ok(ColumnExtractor::Struct(struct_arr, children, model_cls))
+        }
         DataType::Null => Ok(ColumnExtractor::Null),
         _ => Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
             "Unsupported Arrow type: {data_type:?}"
@@ -212,6 +259,52 @@ impl<'a> ColumnExtractor<'a> {
                     Ok(py.None())
                 } else {
                     extract_duration(py, *arr, row, *unit)
+                }
+            }
+            // --- Complex types ---
+            ColumnExtractor::List(arr, child_dt) => {
+                if arr.is_null(row) {
+                    Ok(py.None())
+                } else {
+                    let child_array = arr.value(row); // ArrayRef for this row's list
+                    let len = child_array.len();
+                    let child_ext =
+                        prepare_extractor(py, child_array.as_ref(), child_dt, None)?;
+                    let mut items: Vec<PyObject> = Vec::with_capacity(len);
+                    for j in 0..len {
+                        items.push(child_ext.extract_value(py, j)?);
+                    }
+                    Ok(PyList::new(py, &items)?.into_any().unbind())
+                }
+            }
+            ColumnExtractor::LargeList(arr, child_dt) => {
+                if arr.is_null(row) {
+                    Ok(py.None())
+                } else {
+                    let child_array = arr.value(row);
+                    let len = child_array.len();
+                    let child_ext =
+                        prepare_extractor(py, child_array.as_ref(), child_dt, None)?;
+                    let mut items: Vec<PyObject> = Vec::with_capacity(len);
+                    for j in 0..len {
+                        items.push(child_ext.extract_value(py, j)?);
+                    }
+                    Ok(PyList::new(py, &items)?.into_any().unbind())
+                }
+            }
+            ColumnExtractor::Struct(arr, children, model_cls) => {
+                if arr.is_null(row) {
+                    Ok(py.None()) // null struct -> None for entire nested model (Pitfall 4)
+                } else {
+                    let kwargs = PyDict::new(py);
+                    for (field_name, extractor) in children.iter() {
+                        let value = extractor.extract_value(py, row)?;
+                        kwargs.set_item(field_name.bind(py), value)?;
+                    }
+                    Ok(model_cls
+                        .bind(py)
+                        .call_method("model_construct", (), Some(&kwargs))?
+                        .unbind())
                 }
             }
             // Null type -- always returns None unconditionally.

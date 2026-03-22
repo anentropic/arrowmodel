@@ -410,9 +410,8 @@ class TestResolveColumns:
             ("score", pa.float64()),
             ("active", pa.bool_()),
         ])
-        col_indices, field_names = converter._resolve_columns(schema)
-        assert len(col_indices) == 4
-        assert len(field_names) == 4
+        field_specs = converter._resolve_columns(schema)
+        assert len(field_specs) == 4
 
     def test_missing_required_field_raises_value_error(self) -> None:
         converter = ArrowModelConverter(MixedModel)
@@ -433,9 +432,9 @@ class TestResolveColumns:
     def test_optional_field_missing_skips(self) -> None:
         converter = ArrowModelConverter(OptionalFieldModel)
         schema = pa.schema([("id", pa.int64())])
-        col_indices, field_names = converter._resolve_columns(schema)
-        assert len(col_indices) == 1
-        assert field_names == ["id"]
+        field_specs = converter._resolve_columns(schema)
+        assert len(field_specs) == 1
+        assert field_specs[0][1] == "id"
 
     def test_extra_arrow_columns_ignored(self) -> None:
         converter = ArrowModelConverter(MixedModel)
@@ -446,8 +445,9 @@ class TestResolveColumns:
             ("active", pa.bool_()),
             ("extra_col", pa.int64()),
         ])
-        col_indices, field_names = converter._resolve_columns(schema)
-        assert len(col_indices) == 4
+        field_specs = converter._resolve_columns(schema)
+        assert len(field_specs) == 4
+        field_names = [fs[1] for fs in field_specs]
         assert "extra_col" not in field_names
 
 

@@ -56,18 +56,22 @@ mod _core {
     /// Arguments:
     ///   - batch: Arrow RecordBatch (via PyCapsule / C Data Interface)
     ///   - model_cls: Pydantic model class (e.g. MyModel)
-    ///   - col_indices: column indices in the RecordBatch to extract
-    ///   - field_names: Pydantic field names corresponding to each column index
+    ///   - field_specs: list of (col_index, field_name, Optional[nested_model_cls])
     #[pyfunction]
     fn convert_record_batch(
         py: Python<'_>,
         batch: PyRecordBatch,
         model_cls: Bound<'_, PyAny>,
-        col_indices: Vec<usize>,
-        field_names: Vec<String>,
+        field_specs: Vec<(usize, String, Option<PyObject>)>,
     ) -> PyResult<PyObject> {
         let rb = batch.into_inner();
         let num_rows = rb.num_rows();
+
+        // Decompose field_specs into parallel vectors
+        let col_indices: Vec<usize> = field_specs.iter().map(|(idx, _, _)| *idx).collect();
+        let field_names: Vec<&str> = field_specs.iter().map(|(_, name, _)| name.as_str()).collect();
+        let nested_models: Vec<&Option<PyObject>> =
+            field_specs.iter().map(|(_, _, model)| model).collect();
 
         // FAST-03: Intern field names once, reuse across all rows (Pattern 5)
         let interned_names: Vec<Bound<'_, PyString>> = field_names
@@ -92,7 +96,12 @@ mod _core {
                     DataType::Dictionary(_, value_type) => value_type.as_ref(),
                     other => other,
                 };
-                extract::prepare_extractor(py, col.as_ref(), effective_dt)
+                extract::prepare_extractor(
+                    py,
+                    col.as_ref(),
+                    effective_dt,
+                    nested_models[i].as_ref(),
+                )
             })
             .collect::<Result<_, _>>()?;
 
@@ -126,10 +135,15 @@ mod _core {
         py: Python<'_>,
         table: PyTable,
         model_cls: Bound<'_, PyAny>,
-        col_indices: Vec<usize>,
-        field_names: Vec<String>,
+        field_specs: Vec<(usize, String, Option<PyObject>)>,
     ) -> PyResult<PyObject> {
         let (batches, _schema) = table.into_inner();
+
+        // Decompose field_specs into parallel vectors
+        let col_indices: Vec<usize> = field_specs.iter().map(|(idx, _, _)| *idx).collect();
+        let field_names: Vec<&str> = field_specs.iter().map(|(_, name, _)| name.as_str()).collect();
+        let nested_models: Vec<&Option<PyObject>> =
+            field_specs.iter().map(|(_, _, model)| model).collect();
 
         // FAST-02: Intern field names once, reuse across ALL batches
         let interned_names: Vec<Bound<'_, PyString>> = field_names
@@ -157,7 +171,12 @@ mod _core {
                         DataType::Dictionary(_, value_type) => value_type.as_ref(),
                         other => other,
                     };
-                    extract::prepare_extractor(py, col.as_ref(), effective_dt)
+                    extract::prepare_extractor(
+                        py,
+                        col.as_ref(),
+                        effective_dt,
+                        nested_models[i].as_ref(),
+                    )
                 })
                 .collect::<Result<_, _>>()?;
 

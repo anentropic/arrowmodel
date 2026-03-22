@@ -416,3 +416,82 @@ def binaryview_batch() -> pa.RecordBatch:
         [b"abc_data_padding!", None, b"xyz_data_padding!"]
     ).cast(pa.binary_view())
     return pa.record_batch({"data": arr})
+
+
+# ---------------------------------------------------------------------------
+# Phase 6 Plan 02: Interval, container, REE, and union type fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def interval_mdn_batch() -> pa.RecordBatch:
+    """IntervalMonthDayNano with varying components."""
+    arr = pa.array(
+        [
+            (1, 2, 3000000000),  # 1 month, 2 days, 3 seconds in nanos
+            None,
+            (0, 0, 0),
+        ],
+        type=pa.month_day_nano_interval(),
+    )
+    return pa.record_batch({"interval": arr})
+
+
+@pytest.fixture
+def fixed_size_list_batch() -> pa.RecordBatch:
+    """RecordBatch with FixedSizeList(Int64, 3) column."""
+    return pa.record_batch(
+        {
+            "values": pa.array(
+                [[1, 2, 3], None, [4, 5, 6]],
+                type=pa.list_(pa.int64(), 3),
+            ),
+        }
+    )
+
+
+@pytest.fixture
+def map_batch() -> pa.RecordBatch:
+    """RecordBatch with Map(Utf8, Int64) column."""
+    return pa.record_batch(
+        {
+            "kv": pa.array(
+                [[("a", 1), ("b", 2)], None, [("c", 3)]],
+                type=pa.map_(pa.utf8(), pa.int64()),
+            ),
+        }
+    )
+
+
+@pytest.fixture
+def ree_batch() -> pa.RecordBatch:
+    """RunEndEncoded string column with 3 runs."""
+    values = pa.array(["aaa", "bbb", "ccc"])
+    run_ends = pa.array([2, 4, 5], type=pa.int32())
+    ree_arr = pa.RunEndEncodedArray.from_arrays(run_ends, values)
+    return pa.record_batch({"name": ree_arr})
+
+
+@pytest.fixture
+def sparse_union_batch() -> pa.RecordBatch:
+    """Sparse union with int and string children."""
+    types = pa.array([0, 1, 0], type=pa.int8())
+    children = [
+        pa.array([1, 0, 2], type=pa.int64()),
+        pa.array(["", "hello", ""], type=pa.utf8()),
+    ]
+    arr = pa.UnionArray.from_sparse(types, children)
+    return pa.record_batch({"val": arr})
+
+
+@pytest.fixture
+def dense_union_batch() -> pa.RecordBatch:
+    """Dense union with int and string children."""
+    types = pa.array([0, 1, 0], type=pa.int8())
+    offsets = pa.array([0, 0, 1], type=pa.int32())
+    children = [
+        pa.array([1, 2], type=pa.int64()),
+        pa.array(["hello"], type=pa.utf8()),
+    ]
+    arr = pa.UnionArray.from_dense(types, offsets, children)
+    return pa.record_batch({"val": arr})

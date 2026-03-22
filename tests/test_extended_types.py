@@ -314,6 +314,197 @@ class TestBinaryView:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Pydantic models for Plan 02 types
+# ---------------------------------------------------------------------------
+
+
+class IntervalModel(BaseModel):
+    interval: tuple[int, int, int] | None = None
+
+
+class FixedSizeListModel(BaseModel):
+    values: list[int] | None = None
+
+
+class MapModel(BaseModel):
+    kv: list[tuple[str, int]] | None = None
+
+
+class UnionIntStrModel(BaseModel):
+    val: int | str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Interval tests
+# ---------------------------------------------------------------------------
+
+
+class TestInterval:
+    def test_interval_month_day_nano_value(
+        self, interval_mdn_batch: pa.RecordBatch
+    ) -> None:
+        converter = ArrowModelConverter(IntervalModel)
+        results = converter.convert(interval_mdn_batch)
+        assert len(results) == 3
+        assert results[0].interval == (1, 2, 3000000000)
+
+    def test_interval_null(self, interval_mdn_batch: pa.RecordBatch) -> None:
+        converter = ArrowModelConverter(IntervalModel)
+        results = converter.convert(interval_mdn_batch)
+        assert results[1].interval is None
+
+    def test_interval_zeros(self, interval_mdn_batch: pa.RecordBatch) -> None:
+        converter = ArrowModelConverter(IntervalModel)
+        results = converter.convert(interval_mdn_batch)
+        assert results[2].interval == (0, 0, 0)
+
+
+# ---------------------------------------------------------------------------
+# FixedSizeList tests
+# ---------------------------------------------------------------------------
+
+
+class TestFixedSizeList:
+    def test_fixed_size_list_value(
+        self, fixed_size_list_batch: pa.RecordBatch
+    ) -> None:
+        converter = ArrowModelConverter(FixedSizeListModel)
+        results = converter.convert(fixed_size_list_batch)
+        assert len(results) == 3
+        assert results[0].values == [1, 2, 3]
+
+    def test_fixed_size_list_null(
+        self, fixed_size_list_batch: pa.RecordBatch
+    ) -> None:
+        converter = ArrowModelConverter(FixedSizeListModel)
+        results = converter.convert(fixed_size_list_batch)
+        assert results[1].values is None
+
+    def test_fixed_size_list_all_elements(
+        self, fixed_size_list_batch: pa.RecordBatch
+    ) -> None:
+        converter = ArrowModelConverter(FixedSizeListModel)
+        results = converter.convert(fixed_size_list_batch)
+        assert results[2].values == [4, 5, 6]
+
+
+# ---------------------------------------------------------------------------
+# Map tests
+# ---------------------------------------------------------------------------
+
+
+class TestMap:
+    def test_map_value(self, map_batch: pa.RecordBatch) -> None:
+        converter = ArrowModelConverter(MapModel)
+        results = converter.convert(map_batch)
+        assert len(results) == 3
+        assert results[0].kv == [("a", 1), ("b", 2)]
+
+    def test_map_null(self, map_batch: pa.RecordBatch) -> None:
+        converter = ArrowModelConverter(MapModel)
+        results = converter.convert(map_batch)
+        assert results[1].kv is None
+
+    def test_map_single_entry(self, map_batch: pa.RecordBatch) -> None:
+        converter = ArrowModelConverter(MapModel)
+        results = converter.convert(map_batch)
+        assert results[2].kv == [("c", 3)]
+
+
+# ---------------------------------------------------------------------------
+# RunEndEncoded tests
+# ---------------------------------------------------------------------------
+
+
+class TestRunEndEncoded:
+    def test_ree_string_values(self, ree_batch: pa.RecordBatch) -> None:
+        """REE is transparently unpacked, converter sees regular string column."""
+        converter = ArrowModelConverter(NameModel)
+        results = converter.convert(ree_batch)
+        assert len(results) == 5
+        assert results[0].name == "aaa"
+        assert results[1].name == "aaa"
+        assert results[2].name == "bbb"
+        assert results[3].name == "bbb"
+        assert results[4].name == "ccc"
+
+
+# ---------------------------------------------------------------------------
+# Union tests
+# ---------------------------------------------------------------------------
+
+
+class TestUnion:
+    def test_sparse_union_int_variant(
+        self, sparse_union_batch: pa.RecordBatch
+    ) -> None:
+        converter = ArrowModelConverter(UnionIntStrModel)
+        results = converter.convert(sparse_union_batch)
+        assert results[0].val == 1
+
+    def test_sparse_union_str_variant(
+        self, sparse_union_batch: pa.RecordBatch
+    ) -> None:
+        converter = ArrowModelConverter(UnionIntStrModel)
+        results = converter.convert(sparse_union_batch)
+        assert results[1].val == "hello"
+
+    def test_sparse_union_second_int(
+        self, sparse_union_batch: pa.RecordBatch
+    ) -> None:
+        converter = ArrowModelConverter(UnionIntStrModel)
+        results = converter.convert(sparse_union_batch)
+        assert results[2].val == 2
+
+    def test_dense_union_int_variant(
+        self, dense_union_batch: pa.RecordBatch
+    ) -> None:
+        converter = ArrowModelConverter(UnionIntStrModel)
+        results = converter.convert(dense_union_batch)
+        assert results[0].val == 1
+        assert results[2].val == 2
+
+    def test_dense_union_str_variant(
+        self, dense_union_batch: pa.RecordBatch
+    ) -> None:
+        converter = ArrowModelConverter(UnionIntStrModel)
+        results = converter.convert(dense_union_batch)
+        assert results[1].val == "hello"
+
+
+# ---------------------------------------------------------------------------
+# Validated path tests for Plan 02 container types
+# ---------------------------------------------------------------------------
+
+
+class TestValidatedContainerTypes:
+    def test_interval_validated(self, interval_mdn_batch: pa.RecordBatch) -> None:
+        converter = ArrowModelConverter(IntervalModel, validate=True)
+        results = converter.convert(interval_mdn_batch)
+        assert results[0].interval == (1, 2, 3000000000)
+        assert results[1].interval is None
+
+    def test_fixed_size_list_validated(
+        self, fixed_size_list_batch: pa.RecordBatch
+    ) -> None:
+        converter = ArrowModelConverter(FixedSizeListModel, validate=True)
+        results = converter.convert(fixed_size_list_batch)
+        assert results[0].values == [1, 2, 3]
+        assert results[1].values is None
+
+    def test_map_validated(self, map_batch: pa.RecordBatch) -> None:
+        converter = ArrowModelConverter(MapModel, validate=True)
+        results = converter.convert(map_batch)
+        assert results[0].kv == [("a", 1), ("b", 2)]
+        assert results[1].kv is None
+
+
+# ---------------------------------------------------------------------------
+# Validated path tests for all Plan 01 scalar types
+# ---------------------------------------------------------------------------
+
+
 class TestValidatedScalarTypes:
     def test_float16_validated(self, float16_batch: pa.RecordBatch) -> None:
         converter = ArrowModelConverter(Float16Model, validate=True)

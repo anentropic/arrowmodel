@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-03-22T02:11:26.071Z"
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-03-22T02:18:13.123Z"
 progress:
   total_phases: 5
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Project State
@@ -51,6 +51,7 @@ Plan: 2 of 2
 | Phase 02 P01 | 4min | 2 tasks | 3 files |
 | Phase 02 P02 | 4min | 2 tasks | 5 files |
 | Phase 03-core-conversion P01 | 5min | 2 tasks | 2 files |
+| Phase 03-core-conversion P02 | 4min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,9 @@ Recent decisions affecting current work:
 - [Phase 02]: Arrowdantic ~1.7x faster than to_pylist+model_construct at 100k rows (276ms vs 478ms)
 - [Phase 03-core-conversion]: Schema validation stays at convert() time per Phase 2 decision -- SCHEMA-03 interpreted as before row processing
 - [Phase 03-core-conversion]: _build_field_map is module-level for testability; _resolve_columns uses resolved_fields set for populate_by_name
+- [Phase 03-core-conversion]: Duck-type dispatch (hasattr to_batches) for Table vs RecordBatch to avoid pyarrow runtime dep
+- [Phase 03-core-conversion]: convert_table interns field name strings once, shares across all batches (FAST-02)
+- [Phase 03-core-conversion]: from_arrow creates temporary ArrowModelConverter -- one-shot use, no caching
 
 ### Pending Todos
 
@@ -88,6 +92,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-22T02:11:26.068Z
-Stopped at: Completed 03-01-PLAN.md
+Last session: 2026-03-22T02:18:13.121Z
+Stopped at: Completed 03-02-PLAN.md
 Resume file: None

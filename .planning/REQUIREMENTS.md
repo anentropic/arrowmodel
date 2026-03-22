@@ -27,7 +27,7 @@
 ### Fast Path (model_construct)
 
 - [x] **FAST-01**: Default conversion uses `model_construct` — no Pydantic validation, dict-free row construction
-- [ ] **FAST-02**: Pre-interned Python field name strings reused across all rows (no per-row string allocation)
+- [x] **FAST-02**: Pre-interned Python field name strings reused across all rows (no per-row string allocation)
 - [x] **FAST-03**: Column values extracted directly from Arrow buffers in Rust, no intermediate Python dict
 
 ### Validated Path
@@ -69,14 +69,14 @@
 ### Input Types
 
 - [x] **INPUT-01**: Accept pyarrow `RecordBatch` as input
-- [ ] **INPUT-02**: Accept pyarrow `Table` as input (iterate batches internally)
+- [x] **INPUT-02**: Accept pyarrow `Table` as input (iterate batches internally)
 - [x] **INPUT-03**: Arrow C Data Interface via pyo3-arrow for zero-copy buffer handoff
 
 ### API Surface
 
 - [x] **API-01**: `ArrowModelConverter(Model, validate=False)` constructor
 - [x] **API-02**: `converter.convert(data)` returns `list[Model]`
-- [ ] **API-03**: `from_arrow(Model, data)` convenience one-shot function
+- [x] **API-03**: `from_arrow(Model, data)` convenience one-shot function
 - [ ] **API-04**: Iterator/generator API for lazy model yielding (memory-constrained large datasets)
 - [ ] **API-05**: Type stubs (`.pyi`) for the Rust extension module
 
@@ -123,7 +123,7 @@
 | ALIAS-02 | Phase 3 | Complete |
 | ALIAS-03 | Phase 3 | Complete |
 | FAST-01 | Phase 2 | Complete |
-| FAST-02 | Phase 3 | Pending |
+| FAST-02 | Phase 3 | Complete |
 | FAST-03 | Phase 2 | Complete |
 | VALID-01 | Phase 5 | Pending |
 | VALID-02 | Phase 5 | Pending |
@@ -147,11 +147,11 @@
 | CPLX-04 | Phase 4 | Pending |
 | CPLX-05 | Phase 4 | Pending |
 | INPUT-01 | Phase 2 | Complete |
-| INPUT-02 | Phase 3 | Pending |
+| INPUT-02 | Phase 3 | Complete |
 | INPUT-03 | Phase 1 | Complete |
 | API-01 | Phase 2 | Complete |
 | API-02 | Phase 2 | Complete |
-| API-03 | Phase 3 | Pending |
+| API-03 | Phase 3 | Complete |
 | API-04 | Phase 5 | Pending |
 | API-05 | Phase 5 | Pending |
 

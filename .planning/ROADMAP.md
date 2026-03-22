@@ -61,7 +61,7 @@ Plans:
 
 Plans:
 - [x] 03-01-PLAN.md -- Alias resolution, schema error handling, and extra column handling
-- [ ] 03-02-PLAN.md -- Table input support, from_arrow convenience function, and pre-interned strings
+- [x] 03-02-PLAN.md -- Table input support, from_arrow convenience function, and pre-interned strings
 
 ### Phase 4: Extended Types
 **Goal**: Users can convert Arrow data containing temporal columns, nested structures, lists, and dictionary-encoded columns into Pydantic models

@@ -45,7 +45,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md -- Implement Rust ColumnExtractor and convert_record_batch, create Python ArrowModelConverter wrapper
+- [x] 02-01-PLAN.md -- Implement Rust ColumnExtractor and convert_record_batch, create Python ArrowModelConverter wrapper
 - [ ] 02-02-PLAN.md -- Create conversion correctness tests and pytest-benchmark comparison script
 
 ### Phase 3: Core Conversion

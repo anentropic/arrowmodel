@@ -13,8 +13,8 @@
 
 ### Schema Cross-Reference
 
-- [ ] **SCHEMA-01**: `ArrowModelConverter` class cross-references Arrow schema against Pydantic model fields at construction time
-- [ ] **SCHEMA-02**: Schema mapping compiled once at converter init, reused across all batches
+- [x] **SCHEMA-01**: `ArrowModelConverter` class cross-references Arrow schema against Pydantic model fields at construction time
+- [x] **SCHEMA-02**: Schema mapping compiled once at converter init, reused across all batches
 - [ ] **SCHEMA-03**: `ValueError` raised at init for missing required fields, unresolvable types, or ambiguous matches
 - [ ] **SCHEMA-04**: Extra Arrow columns silently ignored (no error for unmapped columns)
 
@@ -26,9 +26,9 @@
 
 ### Fast Path (model_construct)
 
-- [ ] **FAST-01**: Default conversion uses `model_construct` — no Pydantic validation, dict-free row construction
+- [x] **FAST-01**: Default conversion uses `model_construct` — no Pydantic validation, dict-free row construction
 - [ ] **FAST-02**: Pre-interned Python field name strings reused across all rows (no per-row string allocation)
-- [ ] **FAST-03**: Column values extracted directly from Arrow buffers in Rust, no intermediate Python dict
+- [x] **FAST-03**: Column values extracted directly from Arrow buffers in Rust, no intermediate Python dict
 
 ### Validated Path
 
@@ -38,17 +38,17 @@
 
 ### Primitive Types
 
-- [ ] **TYPE-01**: Int8, Int16, Int32, Int64 → `int`
-- [ ] **TYPE-02**: UInt8, UInt16, UInt32, UInt64 → `int`
-- [ ] **TYPE-03**: Float32, Float64 → `float`
-- [ ] **TYPE-04**: Boolean → `bool` (bit-packed, unpack via validity bitmap)
-- [ ] **TYPE-05**: Utf8, LargeUtf8 → `str`
+- [x] **TYPE-01**: Int8, Int16, Int32, Int64 → `int`
+- [x] **TYPE-02**: UInt8, UInt16, UInt32, UInt64 → `int`
+- [x] **TYPE-03**: Float32, Float64 → `float`
+- [x] **TYPE-04**: Boolean → `bool` (bit-packed, unpack via validity bitmap)
+- [x] **TYPE-05**: Utf8, LargeUtf8 → `str`
 
 ### Null Handling
 
-- [ ] **NULL-01**: Null detection via Arrow validity bitmap before value extraction
-- [ ] **NULL-02**: Null values emit `None` for nullable/optional Pydantic fields
-- [ ] **NULL-03**: Value buffer at null indices is never read (Arrow spec: undefined data)
+- [x] **NULL-01**: Null detection via Arrow validity bitmap before value extraction
+- [x] **NULL-02**: Null values emit `None` for nullable/optional Pydantic fields
+- [x] **NULL-03**: Value buffer at null indices is never read (Arrow spec: undefined data)
 
 ### Temporal Types
 
@@ -68,14 +68,14 @@
 
 ### Input Types
 
-- [ ] **INPUT-01**: Accept pyarrow `RecordBatch` as input
+- [x] **INPUT-01**: Accept pyarrow `RecordBatch` as input
 - [ ] **INPUT-02**: Accept pyarrow `Table` as input (iterate batches internally)
 - [x] **INPUT-03**: Arrow C Data Interface via pyo3-arrow for zero-copy buffer handoff
 
 ### API Surface
 
-- [ ] **API-01**: `ArrowModelConverter(Model, validate=False)` constructor
-- [ ] **API-02**: `converter.convert(data)` returns `list[Model]`
+- [x] **API-01**: `ArrowModelConverter(Model, validate=False)` constructor
+- [x] **API-02**: `converter.convert(data)` returns `list[Model]`
 - [ ] **API-03**: `from_arrow(Model, data)` convenience one-shot function
 - [ ] **API-04**: Iterator/generator API for lazy model yielding (memory-constrained large datasets)
 - [ ] **API-05**: Type stubs (`.pyi`) for the Rust extension module
@@ -115,27 +115,27 @@
 | BUILD-01 | Phase 1 | Complete |
 | BUILD-02 | Phase 1 | Complete |
 | BUILD-03 | Phase 1 | Complete |
-| SCHEMA-01 | Phase 2 | Pending |
-| SCHEMA-02 | Phase 2 | Pending |
+| SCHEMA-01 | Phase 2 | Complete |
+| SCHEMA-02 | Phase 2 | Complete |
 | SCHEMA-03 | Phase 3 | Pending |
 | SCHEMA-04 | Phase 3 | Pending |
 | ALIAS-01 | Phase 3 | Pending |
 | ALIAS-02 | Phase 3 | Pending |
 | ALIAS-03 | Phase 3 | Pending |
-| FAST-01 | Phase 2 | Pending |
+| FAST-01 | Phase 2 | Complete |
 | FAST-02 | Phase 3 | Pending |
-| FAST-03 | Phase 2 | Pending |
+| FAST-03 | Phase 2 | Complete |
 | VALID-01 | Phase 5 | Pending |
 | VALID-02 | Phase 5 | Pending |
 | VALID-03 | Phase 5 | Pending |
-| TYPE-01 | Phase 2 | Pending |
-| TYPE-02 | Phase 2 | Pending |
-| TYPE-03 | Phase 2 | Pending |
-| TYPE-04 | Phase 2 | Pending |
-| TYPE-05 | Phase 2 | Pending |
-| NULL-01 | Phase 2 | Pending |
-| NULL-02 | Phase 2 | Pending |
-| NULL-03 | Phase 2 | Pending |
+| TYPE-01 | Phase 2 | Complete |
+| TYPE-02 | Phase 2 | Complete |
+| TYPE-03 | Phase 2 | Complete |
+| TYPE-04 | Phase 2 | Complete |
+| TYPE-05 | Phase 2 | Complete |
+| NULL-01 | Phase 2 | Complete |
+| NULL-02 | Phase 2 | Complete |
+| NULL-03 | Phase 2 | Complete |
 | TEMP-01 | Phase 4 | Pending |
 | TEMP-02 | Phase 4 | Pending |
 | TEMP-03 | Phase 4 | Pending |
@@ -146,11 +146,11 @@
 | CPLX-03 | Phase 4 | Pending |
 | CPLX-04 | Phase 4 | Pending |
 | CPLX-05 | Phase 4 | Pending |
-| INPUT-01 | Phase 2 | Pending |
+| INPUT-01 | Phase 2 | Complete |
 | INPUT-02 | Phase 3 | Pending |
 | INPUT-03 | Phase 1 | Complete |
-| API-01 | Phase 2 | Pending |
-| API-02 | Phase 2 | Pending |
+| API-01 | Phase 2 | Complete |
+| API-02 | Phase 2 | Complete |
 | API-03 | Phase 3 | Pending |
 | API-04 | Phase 5 | Pending |
 | API-05 | Phase 5 | Pending |

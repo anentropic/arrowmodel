@@ -122,10 +122,11 @@ Plans:
 **Depends on:** Phase 6
 **Requirements**: DEBT-01, DEBT-02, DEBT-03, DEBT-04
 **Gap Closure:** Closes tech debt from v1.0 milestone audit
-**Plans:** 0 plans
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 7 to break down)
+- [ ] 07-01-PLAN.md -- Interval subtype test coverage and validated path tests for 7 extended types
+- [ ] 07-02-PLAN.md -- iter_arrow validated test and from_arrow validate parameter
 
 ## Progress
 
@@ -140,4 +141,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 4. Extended Types | 0/2 | In Progress | - |
 | 5. Validated Path and API Polish | 1/2 | In Progress|  |
 | 6. Support All PyArrow Types | 4/4 | Complete | 2026-03-22 |
-| 7. Test Coverage and API Completeness | 0/0 | Pending | - |
+| 7. Test Coverage and API Completeness | 0/2 | Pending | - |

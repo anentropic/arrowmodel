@@ -443,3 +443,131 @@ class TestResolveColumns:
         col_indices, field_names = converter._resolve_columns(schema)
         assert len(col_indices) == 4
         assert "extra_col" not in field_names
+
+
+# ---------------------------------------------------------------------------
+# Task 2: End-to-end alias resolution and schema validation tests
+# ---------------------------------------------------------------------------
+
+
+class TestAliasResolution:
+    """End-to-end tests for alias-aware conversion via ArrowModelConverter.convert()."""
+
+    def test_validation_alias_priority(self) -> None:
+        """ALIAS-01: validation_alias str field matches Arrow column."""
+        batch = pa.record_batch({"userId": [1, 2], "displayName": ["a", "b"]})
+        results = ArrowModelConverter(ValidationAliasModel).convert(batch)
+        assert len(results) == 2
+        assert results[0].user_id == 1
+        assert results[0].display_name == "a"
+        assert results[1].user_id == 2
+        assert results[1].display_name == "b"
+
+    def test_alias_fallback(self) -> None:
+        """ALIAS-01: alias (no validation_alias) matches Arrow column."""
+        batch = pa.record_batch({"userId": [1, 2], "displayName": ["a", "b"]})
+        results = ArrowModelConverter(AliasModel).convert(batch)
+        assert results[0].user_id == 1
+        assert results[0].display_name == "a"
+
+    def test_field_name_fallback(self) -> None:
+        """ALIAS-01: field_name used when no aliases."""
+        batch = pa.record_batch(
+            {"id": [1], "name": ["x"], "score": [1.0], "active": [True]}
+        )
+        results = ArrowModelConverter(MixedModel).convert(batch)
+        assert results[0].id == 1
+
+    def test_mixed_alias_types(self) -> None:
+        """ALIAS-01: validation_alias, alias, and field_name all work together."""
+        batch = pa.record_batch(
+            {"userId": [1], "displayName": ["a"], "email": ["x@y.z"]}
+        )
+        results = ArrowModelConverter(MixedAliasModel).convert(batch)
+        assert results[0].user_id == 1
+        assert results[0].display_name == "a"
+        assert results[0].email == "x@y.z"
+
+    def test_populate_by_name(self) -> None:
+        """ALIAS-02: populate_by_name=True accepts both alias and field_name."""
+        # With alias column name
+        batch_alias = pa.record_batch({"userId": [1, 2]})
+        results = ArrowModelConverter(PopulateByNameModel).convert(batch_alias)
+        assert results[0].user_id == 1
+
+        # With field name column name
+        batch_field = pa.record_batch({"user_id": [3, 4]})
+        results = ArrowModelConverter(PopulateByNameModel).convert(batch_field)
+        assert results[0].user_id == 3
+
+    def test_validate_by_name(self) -> None:
+        """ALIAS-02: validate_by_name=True accepts both alias and field_name."""
+        batch_alias = pa.record_batch({"userId": [1, 2]})
+        results = ArrowModelConverter(ValidateByNameModel).convert(batch_alias)
+        assert results[0].user_id == 1
+
+        batch_field = pa.record_batch({"user_id": [3, 4]})
+        results = ArrowModelConverter(ValidateByNameModel).convert(batch_field)
+        assert results[0].user_id == 3
+
+    def test_alias_path_raises(self) -> None:
+        """ALIAS-03: AliasPath raises NotImplementedError at init."""
+        with pytest.raises(NotImplementedError, match="AliasPath"):
+            ArrowModelConverter(AliasPathModel)
+
+    def test_alias_choices_raises(self) -> None:
+        """ALIAS-03: AliasChoices raises NotImplementedError at init."""
+        with pytest.raises(NotImplementedError, match="AliasChoices"):
+            ArrowModelConverter(AliasChoicesModel)
+
+    def test_alias_generator_raises(self) -> None:
+        """ALIAS-03: AliasGenerator raises NotImplementedError at init."""
+        with pytest.raises(NotImplementedError, match="AliasGenerator"):
+            ArrowModelConverter(AliasGeneratorModel)
+
+
+class TestSchemaValidation:
+    """End-to-end tests for schema validation behavior."""
+
+    def test_missing_required_field_raises(self) -> None:
+        """SCHEMA-03: convert with batch missing required field raises ValueError."""
+        batch = pa.record_batch({"id": [1, 2]})
+        converter = ArrowModelConverter(MixedModel)
+        with pytest.raises(ValueError, match="missing required columns"):
+            converter.convert(batch)
+
+    def test_missing_multiple_fields_lists_all(self) -> None:
+        """SCHEMA-03: ValueError lists all missing required field names."""
+        batch = pa.record_batch({"wrong": [1, 2]})
+        converter = ArrowModelConverter(MixedModel)
+        with pytest.raises(ValueError, match="missing required columns") as exc_info:
+            converter.convert(batch)
+        error_msg = str(exc_info.value)
+        # All 4 fields of MixedModel should be listed as missing
+        assert "id" in error_msg
+        assert "name" in error_msg
+
+    def test_optional_field_missing_uses_default(self) -> None:
+        """SCHEMA-03: Optional fields missing from Arrow use Pydantic defaults."""
+        batch = pa.record_batch({"id": [1, 2]})
+        results = ArrowModelConverter(OptionalFieldModel).convert(batch)
+        assert len(results) == 2
+        assert results[0].id == 1
+        assert results[0].name == "default_name"
+        assert results[0].score is None
+
+    def test_extra_columns_ignored(self) -> None:
+        """SCHEMA-04: Extra Arrow columns not in model are silently ignored."""
+        batch = pa.record_batch(
+            {
+                "id": [1],
+                "name": ["a"],
+                "score": [1.0],
+                "active": [True],
+                "extra_col": [999],
+            }
+        )
+        results = ArrowModelConverter(MixedModel).convert(batch)
+        assert len(results) == 1
+        assert results[0].id == 1
+        assert not hasattr(results[0], "extra_col")

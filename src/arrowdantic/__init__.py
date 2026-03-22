@@ -102,22 +102,37 @@ class ArrowModelConverter:
         Returns ``(col_indices, field_names)`` for Rust.
         Raises ValueError for missing required columns (SCHEMA-03).
         Extra Arrow columns are silently ignored (SCHEMA-04).
+
+        When populate_by_name / validate_by_name is enabled, the field_map
+        may contain multiple lookup names mapping to the same Pydantic field.
+        A field is considered resolved if ANY of its lookup names match an
+        Arrow column.
         """
         col_indices: list[int] = []
         field_names: list[str] = []
-        missing: list[str] = []
+        # Track which Pydantic fields have been resolved (handles multiple
+        # lookup names mapping to the same field, e.g. populate_by_name)
+        resolved_fields: set[str] = set()
 
         for lookup_name, field_name in self._field_map.items():
+            if field_name in resolved_fields:
+                continue
             col_idx = schema.get_field_index(lookup_name)
             if col_idx < 0:
-                # Check if field is optional (has a default)
-                field_info = self._model_class.model_fields[field_name]
-                if field_info.is_required():
-                    missing.append(lookup_name)
-                # Skip optional fields that aren't in Arrow schema
                 continue
             col_indices.append(col_idx)
             field_names.append(field_name)
+            resolved_fields.add(field_name)
+
+        # Check for missing required fields
+        missing: list[str] = []
+        for field_name, field_info in self._model_class.model_fields.items():
+            if field_name not in resolved_fields and field_info.is_required():
+                # Find the lookup name(s) for this field for the error message
+                lookup_names = [
+                    ln for ln, fn in self._field_map.items() if fn == field_name
+                ]
+                missing.extend(lookup_names[:1])  # report primary lookup name
 
         if missing:
             raise ValueError(

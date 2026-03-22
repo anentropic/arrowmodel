@@ -60,7 +60,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md -- Alias resolution, schema error handling, and extra column handling
+- [x] 03-01-PLAN.md -- Alias resolution, schema error handling, and extra column handling
 - [ ] 03-02-PLAN.md -- Table input support, from_arrow convenience function, and pre-interned strings
 
 ### Phase 4: Extended Types
@@ -102,6 +102,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 |-------|----------------|--------|-----------|
 | 1. Build Foundation | 2/2 | Complete    | 2026-03-21 |
 | 2. Spike & Benchmark | 2/2 | Complete    | 2026-03-22 |
-| 3. Core Conversion | 0/2 | Not started | - |
+| 3. Core Conversion | 1/2 | In Progress|  |
 | 4. Extended Types | 0/? | Not started | - |
 | 5. Validated Path and API Polish | 0/? | Not started | - |

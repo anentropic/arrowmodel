@@ -15,14 +15,14 @@
 
 - [x] **SCHEMA-01**: `ArrowModelConverter` class cross-references Arrow schema against Pydantic model fields at construction time
 - [x] **SCHEMA-02**: Schema mapping compiled once at converter init, reused across all batches
-- [ ] **SCHEMA-03**: `ValueError` raised at init for missing required fields, unresolvable types, or ambiguous matches
-- [ ] **SCHEMA-04**: Extra Arrow columns silently ignored (no error for unmapped columns)
+- [x] **SCHEMA-03**: `ValueError` raised at init for missing required fields, unresolvable types, or ambiguous matches
+- [x] **SCHEMA-04**: Extra Arrow columns silently ignored (no error for unmapped columns)
 
 ### Alias Resolution
 
-- [ ] **ALIAS-01**: Alias resolution priority: `validation_alias` > `alias` > `field_name`
-- [ ] **ALIAS-02**: `populate_by_name` support — accept both alias and field name when enabled
-- [ ] **ALIAS-03**: `NotImplementedError` raised for `AliasPath` or `AliasGenerator` if encountered
+- [x] **ALIAS-01**: Alias resolution priority: `validation_alias` > `alias` > `field_name`
+- [x] **ALIAS-02**: `populate_by_name` support — accept both alias and field name when enabled
+- [x] **ALIAS-03**: `NotImplementedError` raised for `AliasPath` or `AliasGenerator` if encountered
 
 ### Fast Path (model_construct)
 
@@ -117,11 +117,11 @@
 | BUILD-03 | Phase 1 | Complete |
 | SCHEMA-01 | Phase 2 | Complete |
 | SCHEMA-02 | Phase 2 | Complete |
-| SCHEMA-03 | Phase 3 | Pending |
-| SCHEMA-04 | Phase 3 | Pending |
-| ALIAS-01 | Phase 3 | Pending |
-| ALIAS-02 | Phase 3 | Pending |
-| ALIAS-03 | Phase 3 | Pending |
+| SCHEMA-03 | Phase 3 | Complete |
+| SCHEMA-04 | Phase 3 | Complete |
+| ALIAS-01 | Phase 3 | Complete |
+| ALIAS-02 | Phase 3 | Complete |
+| ALIAS-03 | Phase 3 | Complete |
 | FAST-01 | Phase 2 | Complete |
 | FAST-02 | Phase 3 | Pending |
 | FAST-03 | Phase 2 | Complete |

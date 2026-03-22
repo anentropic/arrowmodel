@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 02-02-PLAN.md
-last_updated: "2026-03-22T00:53:37.131Z"
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-03-22T02:11:26.071Z"
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 6
+  completed_plans: 5
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Dict-free, single-step conversion from Arrow buffers to Pydantic model instances
-**Current focus:** Phase 2 — Spike & Benchmark
+**Current focus:** Phase 03 — core-conversion
 
 ## Current Position
 
-Phase: 3
-Plan: Not started
+Phase: 03 (core-conversion) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -50,6 +50,7 @@ Plan: Not started
 | Phase 01 P02 | 2min | 2 tasks | 5 files |
 | Phase 02 P01 | 4min | 2 tasks | 3 files |
 | Phase 02 P02 | 4min | 2 tasks | 5 files |
+| Phase 03-core-conversion P01 | 5min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,8 @@ Recent decisions affecting current work:
 - [Phase 02]: Models defined in test file (not conftest) to avoid pytest conftest import issues
 - [Phase 02]: Benchmark measures convert() only, batch creation in setup (fair comparison per Pitfall 4)
 - [Phase 02]: Arrowdantic ~1.7x faster than to_pylist+model_construct at 100k rows (276ms vs 478ms)
+- [Phase 03-core-conversion]: Schema validation stays at convert() time per Phase 2 decision -- SCHEMA-03 interpreted as before row processing
+- [Phase 03-core-conversion]: _build_field_map is module-level for testability; _resolve_columns uses resolved_fields set for populate_by_name
 
 ### Pending Todos
 
@@ -85,6 +88,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-22T00:49:50.290Z
-Stopped at: Completed 02-02-PLAN.md
+Last session: 2026-03-22T02:11:26.068Z
+Stopped at: Completed 03-01-PLAN.md
 Resume file: None

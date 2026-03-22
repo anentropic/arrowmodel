@@ -621,6 +621,32 @@ class TestValidatedContainerTypes:
         assert results[0].kv == [("a", 1), ("b", 2)]
         assert results[1].kv is None
 
+    def test_ree_validated(self, ree_batch: pa.RecordBatch) -> None:
+        converter = ArrowModelConverter(NameModel, validate=True)
+        results = converter.convert(ree_batch)
+        assert len(results) == 5
+        assert results[0].name == "aaa"
+        assert results[2].name == "bbb"
+        assert results[4].name == "ccc"
+
+    def test_sparse_union_validated(
+        self, sparse_union_batch: pa.RecordBatch
+    ) -> None:
+        converter = ArrowModelConverter(UnionIntStrModel, validate=True)
+        results = converter.convert(sparse_union_batch)
+        assert results[0].val == 1
+        assert results[1].val == "hello"
+        assert results[2].val == 2
+
+    def test_dense_union_validated(
+        self, dense_union_batch: pa.RecordBatch
+    ) -> None:
+        converter = ArrowModelConverter(UnionIntStrModel, validate=True)
+        results = converter.convert(dense_union_batch)
+        assert results[0].val == 1
+        assert results[1].val == "hello"
+        assert results[2].val == 2
+
 
 # ---------------------------------------------------------------------------
 # Validated path tests for all Plan 01 scalar types
@@ -683,3 +709,55 @@ class TestValidatedScalarTypes:
         results = converter.convert(utf8view_batch)
         assert results[0].name == "hello_world_test"
         assert results[1].name is None
+
+    def test_decimal256_validated(
+        self, decimal256_batch: pa.RecordBatch
+    ) -> None:
+        converter = ArrowModelConverter(Decimal256Model, validate=True)
+        results = converter.convert(decimal256_batch)
+        assert results[0].big_amount == decimal.Decimal(
+            "123456789012345678901234567890.12345678"
+        )
+        assert results[1].big_amount is None
+
+    def test_time64_validated(self, time64_us_batch: pa.RecordBatch) -> None:
+        converter = ArrowModelConverter(TimeModel, validate=True)
+        results = converter.convert(time64_us_batch)
+        assert results[0].t == datetime.time(10, 30, 0, 500123)
+        assert results[1].t is None
+
+    def test_large_binary_validated(
+        self, large_binary_batch: pa.RecordBatch
+    ) -> None:
+        """Validated path sends base64-encoded binary in JSON."""
+        import base64
+
+        converter = ArrowModelConverter(BinaryModel, validate=True)
+        results = converter.convert(large_binary_batch)
+        expected = base64.b64encode(b"hello")
+        assert results[0].data == expected
+        assert results[1].data is None
+
+    def test_fixed_size_binary_validated(
+        self, fixed_size_binary_batch: pa.RecordBatch
+    ) -> None:
+        """Validated path sends base64-encoded binary in JSON."""
+        import base64
+
+        converter = ArrowModelConverter(FixedBinaryModel, validate=True)
+        results = converter.convert(fixed_size_binary_batch)
+        expected = base64.b64encode(b"\x01\x02\x03\x04")
+        assert results[0].hash == expected
+        assert results[1].hash is None
+
+    def test_binaryview_validated(
+        self, binaryview_batch: pa.RecordBatch
+    ) -> None:
+        """Validated path sends base64-encoded binary in JSON."""
+        import base64
+
+        converter = ArrowModelConverter(BinaryModel, validate=True)
+        results = converter.convert(binaryview_batch)
+        expected = base64.b64encode(b"abc_data_padding!")
+        assert results[0].data == expected
+        assert results[1].data is None

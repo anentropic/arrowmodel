@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-03-22T00:42:57.602Z"
+stopped_at: Completed 02-02-PLAN.md
+last_updated: "2026-03-22T00:49:50.293Z"
 progress:
   total_phases: 5
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 4
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # Project State
@@ -49,6 +49,7 @@ Plan: 2 of 2
 | Phase 01 P01 | 5min | 2 tasks | 6 files |
 | Phase 01 P02 | 2min | 2 tasks | 5 files |
 | Phase 02 P01 | 4min | 2 tasks | 3 files |
+| Phase 02 P02 | 4min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,9 @@ Recent decisions affecting current work:
 - [Phase 02]: model_construct via call_method with kwargs PyDict for correct kwargs unpacking
 - [Phase 02]: Runtime PyString::intern for field names (not intern\! macro which requires compile-time literals)
 - [Phase 02]: Collect into Vec<PyObject> then PyList::new for pre-allocated result list
+- [Phase 02]: Models defined in test file (not conftest) to avoid pytest conftest import issues
+- [Phase 02]: Benchmark measures convert() only, batch creation in setup (fair comparison per Pitfall 4)
+- [Phase 02]: Arrowdantic ~1.7x faster than to_pylist+model_construct at 100k rows (276ms vs 478ms)
 
 ### Pending Todos
 
@@ -81,6 +85,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-22T00:42:57.599Z
-Stopped at: Completed 02-01-PLAN.md
+Last session: 2026-03-22T00:49:50.290Z
+Stopped at: Completed 02-02-PLAN.md
 Resume file: None

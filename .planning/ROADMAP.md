@@ -46,7 +46,7 @@ Plans:
 
 Plans:
 - [x] 02-01-PLAN.md -- Implement Rust ColumnExtractor and convert_record_batch, create Python ArrowModelConverter wrapper
-- [ ] 02-02-PLAN.md -- Create conversion correctness tests and pytest-benchmark comparison script
+- [x] 02-02-PLAN.md -- Create conversion correctness tests and pytest-benchmark comparison script
 
 ### Phase 3: Core Conversion
 **Goal**: The full conversion API surface with alias resolution, schema mismatch errors, extra column handling, Table input, convenience function, and pre-interned string optimization

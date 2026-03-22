@@ -117,7 +117,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-None yet.
+1. **Rename package — arrowdantic name taken** (general) — choose new name, rename across all files
 
 ### Blockers/Concerns
 

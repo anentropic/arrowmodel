@@ -88,8 +88,8 @@
 
 ### Tech Debt Closure (Phase 7)
 
-- [ ] **DEBT-01**: Test coverage for IntervalYearMonth and IntervalDayTime subtypes (implementation exists, tests missing)
-- [ ] **DEBT-02**: Validated path (`validate=True`) tests for Decimal256, Time64, LargeBinary, FixedSizeBinary, BinaryView, REE, Union
+- [x] **DEBT-01**: Test coverage for IntervalYearMonth and IntervalDayTime subtypes (implementation exists, tests missing)
+- [x] **DEBT-02**: Validated path (`validate=True`) tests for Decimal256, Time64, LargeBinary, FixedSizeBinary, BinaryView, REE, Union
 - [x] **DEBT-03**: Test for `iter_arrow(validate=True)` convenience wrapper
 - [x] **DEBT-04**: Add `validate` parameter to `from_arrow()` for API symmetry with `iter_arrow()`
 
@@ -198,8 +198,8 @@
 | EXT-MAP | Phase 6 | Complete |
 | EXT-REE | Phase 6 | Complete |
 | EXT-UNION | Phase 6 | Complete |
-| DEBT-01 | Phase 7 | Pending |
-| DEBT-02 | Phase 7 | Pending |
+| DEBT-01 | Phase 7 | Complete |
+| DEBT-02 | Phase 7 | Complete |
 | DEBT-03 | Phase 7 | Complete |
 | DEBT-04 | Phase 7 | Complete |
 

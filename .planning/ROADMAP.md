@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Build Foundation** - Maturin/PyO3 build system producing an importable `arrowdantic._core` Rust extension (completed 2026-03-21)
 - [x] **Phase 2: Spike & Benchmark** - Minimal end-to-end primitive conversion with benchmark to prove performance hypothesis (completed 2026-03-22)
-- [ ] **Phase 3: Core Conversion** - Alias resolution, schema error handling, Table input, convenience API, and pre-interned strings
+- [x] **Phase 3: Core Conversion** - Alias resolution, schema error handling, Table input, convenience API, and pre-interned strings
 - [ ] **Phase 4: Extended Types** - Temporal types, lists, structs, dictionary arrays, and null type
 - [ ] **Phase 5: Validated Path and API Polish** - Opt-in Pydantic validation, iterator API, and type stubs
 
@@ -73,11 +73,11 @@ Plans:
   3. Struct columns produce nested Pydantic model instances (recursive construction), and a null struct value produces `None` for the entire nested model
   4. Dictionary-encoded columns resolve to the value type (indices decoded to values transparently)
   5. Null-typed columns produce `None` for every row
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
+- [ ] 04-01-PLAN.md -- Temporal types (Date32, Timestamp, Duration), dictionary array unpacking, and null type support
+- [ ] 04-02-PLAN.md -- List, LargeList, and Struct type support with nested model class passing API
 
 ### Phase 5: Validated Path and API Polish
 **Goal**: Users can opt into full Pydantic validation for untrusted data, iterate results lazily for large datasets, and get IDE autocompletion via type stubs
@@ -102,6 +102,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 |-------|----------------|--------|-----------|
 | 1. Build Foundation | 2/2 | Complete    | 2026-03-21 |
 | 2. Spike & Benchmark | 2/2 | Complete    | 2026-03-22 |
-| 3. Core Conversion | 1/2 | In Progress|  |
-| 4. Extended Types | 0/? | Not started | - |
+| 3. Core Conversion | 2/2 | Complete    | 2026-03-22 |
+| 4. Extended Types | 0/2 | In Progress | - |
 | 5. Validated Path and API Polish | 0/? | Not started | - |

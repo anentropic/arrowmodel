@@ -1072,3 +1072,271 @@ class TestStructTypes:
         assert results[0].address is not None
         # model_construct sets model_fields_set to the kwargs keys
         assert results[0].address.model_fields_set == {"city", "zip_code"}
+
+
+# ---------------------------------------------------------------------------
+# Phase 5 Plan 1: Validated path tests (VALID-01, VALID-02, VALID-03)
+# ---------------------------------------------------------------------------
+
+
+class ValidatedMixedModel(BaseModel):
+    id: int
+    name: str
+    score: float
+    active: bool
+
+
+class ValidatedNullableModel(BaseModel):
+    id: int
+    name: str | None = None
+    score: float | None = None
+
+
+class ValidatedDateModel(BaseModel):
+    event_date: datetime.date | None = None
+
+
+class ValidatedTimestampModel(BaseModel):
+    created_at: datetime.datetime | None = None
+
+
+class ValidatedDurationModel(BaseModel):
+    elapsed: datetime.timedelta | None = None
+
+
+class ValidatedListModel(BaseModel):
+    values: list[int] | None = None
+
+
+class ValidatedPersonModel(BaseModel):
+    name: str
+    address: AddressModel | None = None
+
+
+class ValidatedNanModel(BaseModel):
+    value: float | None = None
+
+
+class ValidatedDictModel(BaseModel):
+    category: str
+
+
+class StrictAgeModel(BaseModel):
+    age: int
+
+
+class TestValidatedPath:
+    """Tests for VALID-01, VALID-02, VALID-03: Validated conversion path."""
+
+    def test_validated_primitives(self) -> None:
+        """VALID-01: validate=True with primitive types produces correct model instances."""
+        batch = pa.record_batch(
+            {
+                "id": pa.array([1, 2], type=pa.int64()),
+                "name": pa.array(["alice", "bob"]),
+                "score": pa.array([9.5, 8.0], type=pa.float64()),
+                "active": pa.array([True, False]),
+            }
+        )
+        converter = ArrowModelConverter(ValidatedMixedModel, validate=True)
+        results = converter.convert(batch)
+        assert len(results) == 2
+        assert results[0].id == 1
+        assert results[0].name == "alice"
+        assert results[0].score == 9.5
+        assert results[0].active is True
+        assert results[1].id == 2
+        assert results[1].name == "bob"
+        assert results[1].active is False
+        assert isinstance(results[0], ValidatedMixedModel)
+
+    def test_validated_null_handling(self) -> None:
+        """VALID-02: validate=True with null values produces None fields."""
+        batch = pa.record_batch(
+            {
+                "id": pa.array([1, 2], type=pa.int64()),
+                "name": pa.array(["alice", None]),
+                "score": pa.array([9.5, None], type=pa.float64()),
+            }
+        )
+        converter = ArrowModelConverter(ValidatedNullableModel, validate=True)
+        results = converter.convert(batch)
+        assert len(results) == 2
+        assert results[0].name == "alice"
+        assert results[0].score == 9.5
+        assert results[1].name is None
+        assert results[1].score is None
+
+    def test_validated_date32(self) -> None:
+        """VALID-02: validate=True with Date32 produces correct datetime.date."""
+        batch = pa.record_batch(
+            {
+                "event_date": pa.array(
+                    [datetime.date(2024, 1, 15), None], type=pa.date32()
+                ),
+            }
+        )
+        converter = ArrowModelConverter(ValidatedDateModel, validate=True)
+        results = converter.convert(batch)
+        assert len(results) == 2
+        assert results[0].event_date == datetime.date(2024, 1, 15)
+        assert isinstance(results[0].event_date, datetime.date)
+        assert results[1].event_date is None
+
+    def test_validated_timestamp_naive(self) -> None:
+        """VALID-02: validate=True with naive Timestamp produces correct datetime."""
+        batch = pa.record_batch(
+            {
+                "created_at": pa.array(
+                    [datetime.datetime(2024, 1, 15, 10, 30, 0, 123456)],
+                    type=pa.timestamp("us"),
+                ),
+            }
+        )
+        converter = ArrowModelConverter(ValidatedTimestampModel, validate=True)
+        results = converter.convert(batch)
+        assert len(results) == 1
+        assert results[0].created_at is not None
+        assert results[0].created_at.year == 2024
+        assert results[0].created_at.month == 1
+        assert results[0].created_at.day == 15
+        assert results[0].created_at.hour == 10
+        assert results[0].created_at.minute == 30
+
+    def test_validated_timestamp_aware(self) -> None:
+        """VALID-02: validate=True with tz-aware Timestamp produces aware datetime."""
+        batch = pa.record_batch(
+            {
+                "created_at": pa.array(
+                    [datetime.datetime(2024, 1, 15, 10, 30, 0)],
+                    type=pa.timestamp("us", tz="UTC"),
+                ),
+            }
+        )
+        converter = ArrowModelConverter(ValidatedTimestampModel, validate=True)
+        results = converter.convert(batch)
+        assert len(results) == 1
+        assert results[0].created_at is not None
+        assert results[0].created_at.tzinfo is not None
+
+    def test_validated_duration(self) -> None:
+        """VALID-02: validate=True with Duration produces correct timedelta."""
+        batch = pa.record_batch(
+            {
+                "elapsed": pa.array(
+                    [3600000000, None, 1000000], type=pa.duration("us")
+                ),
+            }
+        )
+        converter = ArrowModelConverter(ValidatedDurationModel, validate=True)
+        results = converter.convert(batch)
+        assert len(results) == 3
+        assert results[0].elapsed == datetime.timedelta(hours=1)
+        assert results[1].elapsed is None
+        assert results[2].elapsed == datetime.timedelta(seconds=1)
+
+    def test_validated_list(self) -> None:
+        """VALID-02: validate=True with List(Int64) produces correct Python lists."""
+        batch = pa.record_batch(
+            {
+                "values": pa.array(
+                    [[1, 2, 3], None, [4]], type=pa.list_(pa.int64())
+                ),
+            }
+        )
+        converter = ArrowModelConverter(ValidatedListModel, validate=True)
+        results = converter.convert(batch)
+        assert len(results) == 3
+        assert results[0].values == [1, 2, 3]
+        assert results[1].values is None
+        assert results[2].values == [4]
+
+    def test_validated_struct(self) -> None:
+        """VALID-02: validate=True with Struct produces correct nested model."""
+        struct_arr = pa.StructArray.from_arrays(
+            [pa.array(["NYC", "LA"]), pa.array([10001, 90001], type=pa.int32())],
+            names=["city", "zip_code"],
+        )
+        batch = pa.record_batch(
+            {"name": pa.array(["Alice", "Bob"]), "address": struct_arr}
+        )
+        converter = ArrowModelConverter(ValidatedPersonModel, validate=True)
+        results = converter.convert(batch)
+        assert len(results) == 2
+        assert results[0].name == "Alice"
+        assert results[0].address is not None
+        assert results[0].address.city == "NYC"
+        assert results[0].address.zip_code == 10001
+        assert isinstance(results[0].address, AddressModel)
+
+    def test_validated_table(self) -> None:
+        """VALID-02: validate=True with Table input processes all batches."""
+        batch1 = pa.record_batch(
+            {
+                "id": pa.array([1, 2], type=pa.int64()),
+                "name": pa.array(["a", "b"]),
+                "score": pa.array([1.0, 2.0], type=pa.float64()),
+                "active": pa.array([True, False]),
+            }
+        )
+        batch2 = pa.record_batch(
+            {
+                "id": pa.array([3], type=pa.int64()),
+                "name": pa.array(["c"]),
+                "score": pa.array([3.0], type=pa.float64()),
+                "active": pa.array([True]),
+            }
+        )
+        table = pa.Table.from_batches([batch1, batch2])
+        converter = ArrowModelConverter(ValidatedMixedModel, validate=True)
+        results = converter.convert(table)
+        assert len(results) == 3
+        assert results[0].id == 1
+        assert results[2].id == 3
+
+    def test_validated_dict_column(self) -> None:
+        """VALID-02: validate=True with dictionary-encoded column works correctly."""
+        batch = pa.record_batch(
+            {"category": pa.array(["a", "b", "a"]).dictionary_encode()}
+        )
+        converter = ArrowModelConverter(ValidatedDictModel, validate=True)
+        results = converter.convert(batch)
+        assert len(results) == 3
+        assert results[0].category == "a"
+        assert results[1].category == "b"
+        assert results[2].category == "a"
+
+    def test_validated_nan_produces_none(self) -> None:
+        """VALID-03: Float NaN in validated mode produces None (not crash)."""
+        batch = pa.record_batch(
+            {"value": pa.array([float("nan"), 1.5, float("inf")], type=pa.float64())}
+        )
+        converter = ArrowModelConverter(ValidatedNanModel, validate=True)
+        results = converter.convert(batch)
+        assert len(results) == 3
+        assert results[0].value is None  # NaN -> null -> None
+        assert results[1].value == 1.5
+        assert results[2].value is None  # Infinity -> null -> None
+
+
+class TestValidationErrors:
+    """Tests for VALID-03: Invalid data raises Pydantic ValidationError."""
+
+    def test_validation_error_wrong_type(self) -> None:
+        """VALID-03: String values in int column with validate=True raises ValidationError."""
+        batch = pa.record_batch({"age": pa.array(["not_a_number", "also_not"])})
+        converter = ArrowModelConverter(StrictAgeModel, validate=True)
+        with pytest.raises(Exception) as exc_info:
+            converter.convert(batch)
+        # Should be a Pydantic ValidationError
+        assert "validation" in type(exc_info.value).__name__.lower() or "validation" in str(exc_info.value).lower()
+
+    def test_validation_error_message(self) -> None:
+        """VALID-03: ValidationError contains useful info about the failure."""
+        batch = pa.record_batch({"age": pa.array(["bad_value"])})
+        converter = ArrowModelConverter(StrictAgeModel, validate=True)
+        with pytest.raises(Exception) as exc_info:
+            converter.convert(batch)
+        error_str = str(exc_info.value)
+        # Should mention the field or type issue
+        assert len(error_str) > 10  # meaningful error message

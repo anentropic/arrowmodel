@@ -139,6 +139,58 @@ class TestDecimal256:
 
 
 # ---------------------------------------------------------------------------
+# Decimal32 tests
+# ---------------------------------------------------------------------------
+
+
+class TestDecimal32:
+    def test_decimal32_value(self, decimal32_batch: pa.RecordBatch) -> None:
+        converter = ArrowModelConverter(DecimalModel)
+        results = converter.convert(decimal32_batch)
+        assert len(results) == 3
+        assert isinstance(results[0].amount, decimal.Decimal)
+        assert results[0].amount == decimal.Decimal("123.45")
+        assert results[2].amount == decimal.Decimal("-999.99")
+
+    def test_decimal32_null(self, decimal32_batch: pa.RecordBatch) -> None:
+        converter = ArrowModelConverter(DecimalModel)
+        results = converter.convert(decimal32_batch)
+        assert results[1].amount is None
+
+    def test_decimal32_precision(self) -> None:
+        """Verify full precision is preserved (no float truncation)."""
+        val = decimal.Decimal("99999.99")
+        batch = pa.record_batch(
+            {
+                "amount": pa.array([val], type=pa.decimal32(7, 2)),
+            }
+        )
+        converter = ArrowModelConverter(DecimalModel)
+        results = converter.convert(batch)
+        assert results[0].amount == val
+
+
+# ---------------------------------------------------------------------------
+# Decimal64 tests
+# ---------------------------------------------------------------------------
+
+
+class TestDecimal64:
+    def test_decimal64_value(self, decimal64_batch: pa.RecordBatch) -> None:
+        converter = ArrowModelConverter(DecimalModel)
+        results = converter.convert(decimal64_batch)
+        assert len(results) == 3
+        assert isinstance(results[0].amount, decimal.Decimal)
+        assert results[0].amount == decimal.Decimal("1234567.89")
+        assert results[2].amount == decimal.Decimal("-9999999.99")
+
+    def test_decimal64_null(self, decimal64_batch: pa.RecordBatch) -> None:
+        converter = ArrowModelConverter(DecimalModel)
+        results = converter.convert(decimal64_batch)
+        assert results[1].amount is None
+
+
+# ---------------------------------------------------------------------------
 # Date64 tests
 # ---------------------------------------------------------------------------
 
@@ -429,6 +481,16 @@ class TestRunEndEncoded:
         assert results[3].name == "bbb"
         assert results[4].name == "ccc"
 
+    def test_ree_table_values(self, ree_batch: pa.RecordBatch) -> None:
+        """REE via Table input (convert_table path) also works after bug fix."""
+        table = pa.Table.from_batches([ree_batch])
+        converter = ArrowModelConverter(NameModel)
+        results = converter.convert(table)
+        assert len(results) == 5
+        assert results[0].name == "aaa"
+        assert results[2].name == "bbb"
+        assert results[4].name == "ccc"
+
 
 # ---------------------------------------------------------------------------
 # Union tests
@@ -543,6 +605,18 @@ class TestValidatedScalarTypes:
         expected = base64.b64encode(b"\x00\x01\x02")
         assert results[0].data == expected
         assert results[1].data is None
+
+    def test_decimal32_validated(self, decimal32_batch: pa.RecordBatch) -> None:
+        converter = ArrowModelConverter(DecimalModel, validate=True)
+        results = converter.convert(decimal32_batch)
+        assert results[0].amount == decimal.Decimal("123.45")
+        assert results[1].amount is None
+
+    def test_decimal64_validated(self, decimal64_batch: pa.RecordBatch) -> None:
+        converter = ArrowModelConverter(DecimalModel, validate=True)
+        results = converter.convert(decimal64_batch)
+        assert results[0].amount == decimal.Decimal("1234567.89")
+        assert results[1].amount is None
 
     def test_utf8view_validated(self, utf8view_batch: pa.RecordBatch) -> None:
         converter = ArrowModelConverter(NameModel, validate=True)

@@ -297,6 +297,36 @@ def decimal256_batch() -> pa.RecordBatch:
 
 
 @pytest.fixture
+def decimal32_batch() -> pa.RecordBatch:
+    """RecordBatch with Decimal32 column including a null."""
+    import decimal
+
+    return pa.record_batch(
+        {
+            "amount": pa.array(
+                [decimal.Decimal("123.45"), None, decimal.Decimal("-999.99")],
+                type=pa.decimal32(7, 2),
+            ),
+        }
+    )
+
+
+@pytest.fixture
+def decimal64_batch() -> pa.RecordBatch:
+    """RecordBatch with Decimal64 column including a null."""
+    import decimal
+
+    return pa.record_batch(
+        {
+            "amount": pa.array(
+                [decimal.Decimal("1234567.89"), None, decimal.Decimal("-9999999.99")],
+                type=pa.decimal64(11, 2),
+            ),
+        }
+    )
+
+
+@pytest.fixture
 def date64_batch() -> pa.RecordBatch:
     """RecordBatch with Date64 column including a null."""
     return pa.record_batch(

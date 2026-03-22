@@ -13,7 +13,7 @@ Arrowdantic delivers dict-free, single-step conversion from Arrow buffers to Pyd
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Build Foundation** - Maturin/PyO3 build system producing an importable `arrowdantic._core` Rust extension (completed 2026-03-21)
-- [ ] **Phase 2: Spike & Benchmark** - Minimal end-to-end primitive conversion with benchmark to prove performance hypothesis
+- [x] **Phase 2: Spike & Benchmark** - Minimal end-to-end primitive conversion with benchmark to prove performance hypothesis (completed 2026-03-22)
 - [ ] **Phase 3: Core Conversion** - Alias resolution, schema error handling, Table input, convenience API, and pre-interned strings
 - [ ] **Phase 4: Extended Types** - Temporal types, lists, structs, dictionary arrays, and null type
 - [ ] **Phase 5: Validated Path and API Polish** - Opt-in Pydantic validation, iterator API, and type stubs
@@ -99,7 +99,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Build Foundation | 2/2 | Complete    | 2026-03-21 |
-| 2. Spike & Benchmark | 0/2 | Not started | - |
+| 2. Spike & Benchmark | 0/2 | Complete    | 2026-03-22 |
 | 3. Core Conversion | 0/? | Not started | - |
 | 4. Extended Types | 0/? | Not started | - |
 | 5. Validated Path and API Polish | 0/? | Not started | - |

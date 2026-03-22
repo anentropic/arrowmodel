@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-02-PLAN.md
-last_updated: "2026-03-22T11:26:47.594Z"
+stopped_at: Completed 05-01-PLAN.md
+last_updated: "2026-03-22T12:42:19.882Z"
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 10
+  completed_plans: 9
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Dict-free, single-step conversion from Arrow buffers to Pydantic model instances
-**Current focus:** Phase 04 — extended-types
+**Current focus:** Phase 05 — validated-path-and-api-polish
 
 ## Current Position
 
-Phase: 5
-Plan: Not started
+Phase: 05 (validated-path-and-api-polish) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -54,6 +54,7 @@ Plan: Not started
 | Phase 03-core-conversion P02 | 4min | 2 tasks | 3 files |
 | Phase 04-extended-types P01 | 5min | 2 tasks | 5 files |
 | Phase 04-extended-types P02 | 5min | 2 tasks | 5 files |
+| Phase 05-validated-path-and-api-polish P01 | 5min | 1 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,9 @@ Recent decisions affecting current work:
 - [Phase 04-extended-types]: Replace col_indices+field_names with field_specs tuples for passing nested model classes to Rust
 - [Phase 04-extended-types]: Recursive struct introspection: Rust calls Python _get_nested_model for child struct model classes
 - [Phase 04-extended-types]: Temporary extractor per list row to solve ListArray.value() ownership lifetime
+- [Phase 05-validated-path-and-api-polish]: Validated path: serde_json row serialization -> PyBytes -> model_validate_json for full Pydantic validation
+- [Phase 05-validated-path-and-api-polish]: NaN/Infinity floats serialize as JSON null (not error) in validated path
+- [Phase 05-validated-path-and-api-polish]: Tz-aware timestamps append +00:00 in JSON for Pydantic to produce aware datetimes
 
 ### Pending Todos
 
@@ -100,6 +104,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-22T11:22:56.449Z
-Stopped at: Completed 04-02-PLAN.md
+Last session: 2026-03-22T12:42:19.877Z
+Stopped at: Completed 05-01-PLAN.md
 Resume file: None

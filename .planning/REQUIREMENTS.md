@@ -32,9 +32,9 @@
 
 ### Validated Path
 
-- [ ] **VALID-01**: Opt-in `validate=True` mode on `ArrowModelConverter`
-- [ ] **VALID-02**: Validated path serialises each row to JSON bytes via `serde_json` in Rust
-- [ ] **VALID-03**: JSON bytes passed to `model_validate_json` for full Pydantic validation in pydantic-core's Rust layer
+- [x] **VALID-01**: Opt-in `validate=True` mode on `ArrowModelConverter`
+- [x] **VALID-02**: Validated path serialises each row to JSON bytes via `serde_json` in Rust
+- [x] **VALID-03**: JSON bytes passed to `model_validate_json` for full Pydantic validation in pydantic-core's Rust layer
 
 ### Primitive Types
 
@@ -125,9 +125,9 @@
 | FAST-01 | Phase 2 | Complete |
 | FAST-02 | Phase 3 | Complete |
 | FAST-03 | Phase 2 | Complete |
-| VALID-01 | Phase 5 | Pending |
-| VALID-02 | Phase 5 | Pending |
-| VALID-03 | Phase 5 | Pending |
+| VALID-01 | Phase 5 | Complete |
+| VALID-02 | Phase 5 | Complete |
+| VALID-03 | Phase 5 | Complete |
 | TYPE-01 | Phase 2 | Complete |
 | TYPE-02 | Phase 2 | Complete |
 | TYPE-03 | Phase 2 | Complete |

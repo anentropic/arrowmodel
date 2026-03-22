@@ -1,3 +1,5 @@
+use arrow_array::ArrayRef;
+use arrow_schema::DataType;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyString};
 use pyo3_arrow::{PyRecordBatch, PyTable};
@@ -5,6 +7,34 @@ use pyo3_arrow::{PyRecordBatch, PyTable};
 type PyObject = Py<PyAny>;
 
 mod extract;
+
+/// Unpack dictionary-encoded columns to their value type arrays.
+/// Non-dictionary columns are returned as-is (cloned Arc reference).
+/// This resolves the lifetime issue: owned unpacked arrays live in the
+/// returned Vec, and extractors borrow from them.
+fn unpack_columns(
+    columns: &[ArrayRef],
+    schema: &arrow_schema::SchemaRef,
+    col_indices: &[usize],
+) -> Result<Vec<ArrayRef>, PyErr> {
+    col_indices
+        .iter()
+        .map(|&idx| {
+            let col = &columns[idx];
+            let dt = schema.field(idx).data_type();
+            match dt {
+                DataType::Dictionary(_, value_type) => {
+                    arrow_cast::cast(col.as_ref(), value_type.as_ref()).map_err(|e| {
+                        PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
+                            "Failed to unpack dictionary array: {e}"
+                        ))
+                    })
+                }
+                _ => Ok(col.clone()),
+            }
+        })
+        .collect()
+}
 
 #[pymodule(name = "_core")]
 mod _core {
@@ -45,14 +75,24 @@ mod _core {
             .map(|name| PyString::intern(py, name))
             .collect();
 
-        // Pattern 2: Downcast columns once before the row loop
+        // Pre-unpack dictionary columns before building extractors
         let schema = rb.schema();
-        let extractors: Vec<extract::ColumnExtractor<'_>> = col_indices
+        let unpacked = unpack_columns(rb.columns(), &schema, &col_indices)?;
+
+        // Pattern 2: Downcast columns once before the row loop
+        // Use unpacked columns (dictionary columns are already decoded)
+        let extractors: Vec<extract::ColumnExtractor<'_>> = unpacked
             .iter()
-            .map(|&idx| {
-                let col = rb.column(idx);
-                let dt = schema.field(idx).data_type();
-                extract::prepare_extractor(col.as_ref(), dt)
+            .enumerate()
+            .map(|(i, col)| {
+                let orig_idx = col_indices[i];
+                let dt = schema.field(orig_idx).data_type();
+                // For dictionary columns, use the value type for the extractor
+                let effective_dt = match dt {
+                    DataType::Dictionary(_, value_type) => value_type.as_ref(),
+                    other => other,
+                };
+                extract::prepare_extractor(py, col.as_ref(), effective_dt)
             })
             .collect::<Result<_, _>>()?;
 
@@ -103,12 +143,21 @@ mod _core {
 
         for rb in &batches {
             let schema = rb.schema();
-            let extractors: Vec<extract::ColumnExtractor<'_>> = col_indices
+
+            // Pre-unpack dictionary columns for this batch
+            let unpacked = unpack_columns(rb.columns(), &schema, &col_indices)?;
+
+            let extractors: Vec<extract::ColumnExtractor<'_>> = unpacked
                 .iter()
-                .map(|&idx| {
-                    let col = rb.column(idx);
-                    let dt = schema.field(idx).data_type();
-                    extract::prepare_extractor(col.as_ref(), dt)
+                .enumerate()
+                .map(|(i, col)| {
+                    let orig_idx = col_indices[i];
+                    let dt = schema.field(orig_idx).data_type();
+                    let effective_dt = match dt {
+                        DataType::Dictionary(_, value_type) => value_type.as_ref(),
+                        other => other,
+                    };
+                    extract::prepare_extractor(py, col.as_ref(), effective_dt)
                 })
                 .collect::<Result<_, _>>()?;
 

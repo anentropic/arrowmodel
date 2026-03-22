@@ -114,7 +114,7 @@ Plans:
 - [x] 06-01-PLAN.md -- Scalar, temporal, and binary types: Float16, Decimal128/256/32/64, Date64, Time32/64, Binary, FixedSizeBinary, Utf8View, BinaryView
 - [x] 06-02-PLAN.md -- Container and compound types: Interval (3 variants), FixedSizeList, Map, RunEndEncoded, Union (sparse + dense)
 - [ ] 06-03-PLAN.md -- Gap closure: Fix REE bug in convert_table/convert_table_validated, add Decimal32/64 test coverage
-- [ ] 06-04-PLAN.md -- Gap closure: Add Phase 6 requirement IDs to REQUIREMENTS.md traceability
+- [x] 06-04-PLAN.md -- Gap closure: Add Phase 6 requirement IDs to REQUIREMENTS.md traceability
 
 ## Progress
 

@@ -11,7 +11,7 @@ from arrowdantic import _core as _core
 if TYPE_CHECKING:
     import pyarrow as pa
 
-__all__ = ["ArrowModelConverter", "_build_field_map", "_core"]
+__all__ = ["ArrowModelConverter", "from_arrow", "_build_field_map", "_core"]
 
 
 def _build_field_map(model_class: type[BaseModel]) -> dict[str, str]:
@@ -142,19 +142,40 @@ class ArrowModelConverter:
 
         return col_indices, field_names
 
-    def convert(self, data: pa.RecordBatch) -> list[BaseModel]:
-        """Convert an Arrow RecordBatch to a list of Pydantic model instances.
+    def convert(self, data: pa.RecordBatch | pa.Table) -> list[BaseModel]:
+        """Convert Arrow RecordBatch or Table to a list of Pydantic model instances.
 
         Per API-02: Returns list[Model].
         Per INPUT-01: Accepts pyarrow RecordBatch.
-        Per SCHEMA-03: Raises ValueError for missing required Arrow columns.
+        Per INPUT-02: Accepts pyarrow Table (iterates batches internally via Rust).
+        Per SCHEMA-03: Raises ValueError when required fields cannot be matched.
         Per SCHEMA-04: Extra Arrow columns silently ignored.
         """
         col_indices, field_names = self._resolve_columns(data.schema)
 
-        return _core.convert_record_batch(
-            data,
-            self._model_class,
-            col_indices,
-            field_names,
-        )
+        if hasattr(data, "to_batches"):
+            # Table input: delegate to Rust convert_table
+            return _core.convert_table(
+                data, self._model_class, col_indices, field_names
+            )
+        else:
+            # RecordBatch input: delegate to Rust convert_record_batch
+            return _core.convert_record_batch(
+                data, self._model_class, col_indices, field_names
+            )
+
+
+def from_arrow(
+    model_class: type[BaseModel],
+    data: pa.RecordBatch | pa.Table,
+) -> list[BaseModel]:
+    """One-shot conversion from Arrow data to Pydantic model instances.
+
+    Convenience function that creates a temporary ArrowModelConverter
+    and calls convert(). For repeated conversions of the same model,
+    prefer creating an ArrowModelConverter instance and reusing it.
+
+    Per API-03: Convenience one-shot function.
+    """
+    converter = ArrowModelConverter(model_class)
+    return converter.convert(data)

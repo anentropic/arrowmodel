@@ -1,6 +1,6 @@
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyString};
-use pyo3_arrow::PyRecordBatch;
+use pyo3_arrow::{PyRecordBatch, PyTable};
 
 type PyObject = Py<PyAny>;
 
@@ -72,6 +72,57 @@ mod _core {
         }
 
         // Convert Vec to PyList and return
+        let py_list = PyList::new(py, &results)?;
+        Ok(py_list.into_any().unbind())
+    }
+
+    /// Convert an Arrow Table to a list of Pydantic model instances.
+    ///
+    /// Iterates over all RecordBatches in the Table, using the shared
+    /// Table schema to resolve column indices once. Field name strings
+    /// are interned once and reused across all batches (FAST-02).
+    #[pyfunction]
+    fn convert_table(
+        py: Python<'_>,
+        table: PyTable,
+        model_cls: Bound<'_, PyAny>,
+        col_indices: Vec<usize>,
+        field_names: Vec<String>,
+    ) -> PyResult<PyObject> {
+        let (batches, _schema) = table.into_inner();
+
+        // FAST-02: Intern field names once, reuse across ALL batches
+        let interned_names: Vec<Bound<'_, PyString>> = field_names
+            .iter()
+            .map(|name| PyString::intern(py, name))
+            .collect();
+
+        // Pre-allocate for total rows across all batches
+        let total_rows: usize = batches.iter().map(|b| b.num_rows()).sum();
+        let mut results: Vec<PyObject> = Vec::with_capacity(total_rows);
+
+        for rb in &batches {
+            let schema = rb.schema();
+            let extractors: Vec<extract::ColumnExtractor<'_>> = col_indices
+                .iter()
+                .map(|&idx| {
+                    let col = rb.column(idx);
+                    let dt = schema.field(idx).data_type();
+                    extract::prepare_extractor(col.as_ref(), dt)
+                })
+                .collect::<Result<_, _>>()?;
+
+            for row in 0..rb.num_rows() {
+                let kwargs = PyDict::new(py);
+                for (extractor, interned_name) in extractors.iter().zip(interned_names.iter()) {
+                    let value = extractor.extract_value(py, row)?;
+                    kwargs.set_item(interned_name, value)?;
+                }
+                let instance = model_cls.call_method("model_construct", (), Some(&kwargs))?;
+                results.push(instance.unbind());
+            }
+        }
+
         let py_list = PyList::new(py, &results)?;
         Ok(py_list.into_any().unbind())
     }

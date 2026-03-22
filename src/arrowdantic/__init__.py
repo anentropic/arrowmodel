@@ -49,14 +49,13 @@ class ArrowModelConverter:
         schema = data.schema
         col_indices: list[int] = []
         for field_name in self._field_names:
-            try:
-                col_idx = schema.get_field_index(field_name)
-            except KeyError:
+            col_idx = schema.get_field_index(field_name)
+            if col_idx < 0:
                 msg = (
                     f"Arrow schema has no column named {field_name!r}. "
                     f"Available columns: {schema.names}"
                 )
-                raise ValueError(msg) from None
+                raise ValueError(msg)
             col_indices.append(col_idx)
 
         return _core.convert_record_batch(

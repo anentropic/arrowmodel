@@ -31,11 +31,14 @@ Dict-free, single-step conversion from Arrow buffers to Pydantic model instances
 - ✓ Struct → nested Pydantic `BaseModel` via recursive `model_construct` in Rust — Phase 4
 - ✓ Dictionary arrays transparently decoded to value type via `arrow_cast::cast` — Phase 4
 - ✓ Null type → `None` for every row — Phase 4
+- ✓ Validated path (`validate=True`): serde_json row serialisation → `model_validate_json` for full Pydantic validation — Phase 5
+- ✓ Iterator/generator API for lazy model yielding (per-batch granularity) — Phase 5
+- ✓ Type stubs (`_core.pyi`) for the Rust extension module — Phase 5
+- ✓ basedpyright strict mode without suppressions — Phase 5
 
 ### Active
 
-- [ ] Validated path (`validate=True`): serde_json row serialisation → `validate_json` for full Pydantic validation
-- [ ] Type stubs (`_core.pyi`) for the Rust extension
+(No active requirements — v1.0 milestone complete)
 
 ### Out of Scope
 
@@ -68,9 +71,9 @@ Dict-free, single-step conversion from Arrow buffers to Pydantic model instances
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Use `pyo3-arrow` for C Data Interface | Ergonomic PyO3 wrapper, avoids manual FFI pointer handling | — Pending |
+| Use `pyo3-arrow` for C Data Interface | Ergonomic PyO3 wrapper, avoids manual FFI pointer handling | Validated Phase 1-5 |
 | Schema cross-reference in Python, hot loop in Rust | `model_fields` introspection is easy in Python; Rust loop avoids per-row Python overhead | Validated Phase 2-3 |
-| Validated path via serde_json → validate_json | Keeps both serialisation and validation in Rust (pydantic-core), avoids Python dict intermediate | — Pending |
+| Validated path via serde_json → model_validate_json | Keeps serialisation in Rust, validation in pydantic-core; avoids Python dict intermediate | Validated Phase 5 |
 | Silently ignore extra Arrow columns | Matches common data pipeline patterns; strict mode deferred | Validated Phase 3 |
 | Pre-intern Python field name strings | Eliminates per-row string allocation in the hot loop | Validated Phase 3 |
 | Alias resolution in Python, not Rust | Pydantic's `model_fields`/`FieldInfo` trivially introspectable in Python; no Pydantic logic recreation needed | Validated Phase 3 |
@@ -94,4 +97,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-22 after Phase 4 completion*
+*Last updated: 2026-03-22 after Phase 5 completion (v1.0 milestone complete)*

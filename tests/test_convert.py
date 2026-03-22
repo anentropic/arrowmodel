@@ -859,3 +859,216 @@ class TestNullType:
         assert len(results) == 2
         for result in results:
             assert result.nothing is None
+
+
+# ---------------------------------------------------------------------------
+# Phase 4 Plan 2: List, LargeList, and Struct type models and tests
+# ---------------------------------------------------------------------------
+
+
+class AddressModel(BaseModel):
+    city: str
+    zip_code: int
+
+
+class PersonModel(BaseModel):
+    name: str
+    address: AddressModel | None = None
+
+
+class ListIntModel(BaseModel):
+    values: list[int] | None = None
+
+
+class ListStrModel(BaseModel):
+    tags: list[str]
+
+
+class NestedListModel(BaseModel):
+    matrix: list[list[int]] | None = None
+
+
+class InnerModel(BaseModel):
+    x: int
+
+
+class OuterModel(BaseModel):
+    inner: InnerModel | None = None
+
+
+class TestListTypes:
+    """Tests for CPLX-01, CPLX-02: List and LargeList type conversions."""
+
+    def test_list_int(self, list_int_batch: pa.RecordBatch) -> None:
+        """CPLX-01: List(Int64) produces Python lists of ints."""
+        results = ArrowModelConverter(ListIntModel).convert(list_int_batch)
+        assert len(results) == 3
+        assert results[0].values == [1, 2, 3]
+        assert results[1].values == [4, 5]
+        assert results[2].values == [6]
+        assert isinstance(results[0].values, list)
+
+    def test_list_string(self, list_str_batch: pa.RecordBatch) -> None:
+        """CPLX-01: List(Utf8) produces Python lists of strings."""
+        results = ArrowModelConverter(ListStrModel).convert(list_str_batch)
+        assert len(results) == 2
+        assert results[0].tags == ["a", "b"]
+        assert results[1].tags == ["c"]
+
+    def test_list_with_nulls(self) -> None:
+        """CPLX-01: Null list entries produce None."""
+        batch = pa.record_batch(
+            {
+                "values": pa.array(
+                    [[1, 2], None, [3]], type=pa.list_(pa.int64())
+                ),
+            }
+        )
+        results = ArrowModelConverter(ListIntModel).convert(batch)
+        assert len(results) == 3
+        assert results[0].values == [1, 2]
+        assert results[1].values is None
+        assert results[2].values == [3]
+
+    def test_list_empty_sublist(self) -> None:
+        """CPLX-01: Empty sublists produce empty Python lists."""
+        batch = pa.record_batch(
+            {
+                "values": pa.array(
+                    [[], [1]], type=pa.list_(pa.int64())
+                ),
+            }
+        )
+        results = ArrowModelConverter(ListIntModel).convert(batch)
+        assert len(results) == 2
+        assert results[0].values == []
+        assert results[1].values == [1]
+
+    def test_large_list(self) -> None:
+        """CPLX-02: LargeList(Int64) produces same results as List."""
+        batch = pa.record_batch(
+            {
+                "values": pa.array(
+                    [[1, 2], [3]], type=pa.large_list(pa.int64())
+                ),
+            }
+        )
+        results = ArrowModelConverter(ListIntModel).convert(batch)
+        assert len(results) == 2
+        assert results[0].values == [1, 2]
+        assert results[1].values == [3]
+        assert isinstance(results[0].values, list)
+
+    def test_nested_list(self) -> None:
+        """CPLX-01: List(List(Int32)) produces nested Python lists."""
+        batch = pa.record_batch(
+            {
+                "matrix": pa.array(
+                    [[[1, 2], [3]], [[4]]],
+                    type=pa.list_(pa.list_(pa.int32())),
+                ),
+            }
+        )
+        results = ArrowModelConverter(NestedListModel).convert(batch)
+        assert len(results) == 2
+        assert results[0].matrix == [[1, 2], [3]]
+        assert results[1].matrix == [[4]]
+
+
+class TestStructTypes:
+    """Tests for CPLX-03: Struct type conversions to nested Pydantic models."""
+
+    def test_struct_basic(self, struct_batch: pa.RecordBatch) -> None:
+        """CPLX-03: Struct column produces nested Pydantic model instances."""
+        results = ArrowModelConverter(PersonModel).convert(struct_batch)
+        assert len(results) == 2
+        assert results[0].name == "Alice"
+        assert results[0].address is not None
+        assert results[0].address.city == "NYC"
+        assert results[0].address.zip_code == 10001
+        assert isinstance(results[0].address, AddressModel)
+        assert results[1].name == "Bob"
+        assert results[1].address is not None
+        assert results[1].address.city == "LA"
+        assert results[1].address.zip_code == 90001
+
+    def test_struct_null(self) -> None:
+        """CPLX-03: Null struct row produces None for the nested model."""
+        # Create a struct array with an explicit null at row index 1
+        cities = pa.array(["NYC", None, "LA"])
+        zips = pa.array([10001, 0, 90001], type=pa.int32())
+        struct_arr = pa.StructArray.from_arrays(
+            [cities, zips],
+            names=["city", "zip_code"],
+            mask=pa.array([False, True, False]),  # row 1 is null struct
+        )
+        batch = pa.record_batch(
+            {
+                "name": pa.array(["Alice", "Bob", "Charlie"]),
+                "address": struct_arr,
+            }
+        )
+        results = ArrowModelConverter(PersonModel).convert(batch)
+        assert len(results) == 3
+        assert results[0].address is not None
+        assert results[0].address.city == "NYC"
+        assert results[1].address is None  # null struct -> None
+        assert results[2].address is not None
+        assert results[2].address.city == "LA"
+
+    def test_struct_with_nullable_child(self) -> None:
+        """CPLX-03: Struct with nullable child fields propagates None correctly."""
+        cities = pa.array(["NYC", None])
+        zips = pa.array([10001, 90001], type=pa.int32())
+        struct_arr = pa.StructArray.from_arrays(
+            [cities, zips],
+            names=["city", "zip_code"],
+        )
+        batch = pa.record_batch(
+            {
+                "name": pa.array(["Alice", "Bob"]),
+                "address": struct_arr,
+            }
+        )
+        results = ArrowModelConverter(PersonModel).convert(batch)
+        assert len(results) == 2
+        assert results[0].address is not None
+        assert results[0].address.city == "NYC"
+        # Struct is not null, but child city is null
+        assert results[1].address is not None
+        assert results[1].address.city is None
+        assert results[1].address.zip_code == 90001
+
+    def test_struct_nested(self) -> None:
+        """CPLX-03: Struct containing another Struct produces doubly-nested models."""
+        # Build inner struct: InnerModel with field x
+        inner_struct = pa.StructArray.from_arrays(
+            [pa.array([10, 20], type=pa.int32())],
+            names=["x"],
+        )
+        # Build outer struct: OuterModel with field inner
+        outer_struct = pa.StructArray.from_arrays(
+            [inner_struct],
+            names=["inner"],
+        )
+        batch = pa.record_batch({"outer": outer_struct})
+
+        class DeepModel(BaseModel):
+            outer: OuterModel | None = None
+
+        results = ArrowModelConverter(DeepModel).convert(batch)
+        assert len(results) == 2
+        assert results[0].outer is not None
+        assert isinstance(results[0].outer, OuterModel)
+        assert results[0].outer.inner is not None
+        assert isinstance(results[0].outer.inner, InnerModel)
+        assert results[0].outer.inner.x == 10
+        assert results[1].outer.inner.x == 20
+
+    def test_struct_fields_set(self, struct_batch: pa.RecordBatch) -> None:
+        """CPLX-03: Nested model has correct model_fields_set (model_construct was used)."""
+        results = ArrowModelConverter(PersonModel).convert(struct_batch)
+        # The nested model should have been constructed via model_construct
+        assert results[0].address is not None
+        # model_construct sets model_fields_set to the kwargs keys
+        assert results[0].address.model_fields_set == {"city", "zip_code"}

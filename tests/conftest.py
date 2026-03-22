@@ -200,3 +200,49 @@ def dict_int_batch() -> pa.RecordBatch:
             "code": pa.DictionaryArray.from_arrays(indices, dictionary),
         }
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 4 Plan 2: List, LargeList, and Struct type fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def list_int_batch() -> pa.RecordBatch:
+    """RecordBatch with List(Int64) column."""
+    return pa.record_batch(
+        {
+            "values": pa.array(
+                [[1, 2, 3], [4, 5], [6]], type=pa.list_(pa.int64())
+            ),
+        }
+    )
+
+
+@pytest.fixture
+def list_str_batch() -> pa.RecordBatch:
+    """RecordBatch with List(Utf8) column."""
+    return pa.record_batch(
+        {
+            "tags": pa.array(
+                [["a", "b"], ["c"]], type=pa.list_(pa.utf8())
+            ),
+        }
+    )
+
+
+@pytest.fixture
+def struct_batch() -> pa.RecordBatch:
+    """RecordBatch with a name column and a Struct(city, zip_code) column."""
+    return pa.record_batch(
+        {
+            "name": pa.array(["Alice", "Bob"]),
+            "address": pa.StructArray.from_arrays(
+                [
+                    pa.array(["NYC", "LA"]),
+                    pa.array([10001, 90001], type=pa.int32()),
+                ],
+                names=["city", "zip_code"],
+            ),
+        }
+    )

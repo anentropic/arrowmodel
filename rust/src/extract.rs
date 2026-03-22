@@ -115,11 +115,38 @@ pub fn prepare_extractor<'a>(
             let struct_arr = as_struct_array(col);
             let mut children: Vec<(Py<PyString>, ColumnExtractor<'a>)> =
                 Vec::with_capacity(fields.len());
+
+            // Introspect the nested model class to find child struct model classes.
+            // Import the _get_nested_model helper from Python.
+            let arrowdantic = py.import("arrowdantic")?;
+            let get_nested_model_fn = arrowdantic.getattr("_get_nested_model")?;
+            let model_fields = model_cls.bind(py).getattr("model_fields")?;
+
             for (i, field) in fields.iter().enumerate() {
                 let child_col = struct_arr.column(i);
-                let child_ext =
-                    prepare_extractor(py, child_col.as_ref(), field.data_type(), None)?;
-                let field_name = PyString::intern(py, field.name()).unbind();
+                let field_name_str = field.name();
+
+                // Look up the child's nested model class from the Pydantic model
+                let child_nested_model: Option<PyObject> =
+                    if let Ok(field_info) = model_fields.get_item(field_name_str) {
+                        let annotation = field_info.getattr("annotation")?;
+                        let result = get_nested_model_fn.call1((annotation,))?;
+                        if result.is_none() {
+                            None
+                        } else {
+                            Some(result.unbind())
+                        }
+                    } else {
+                        None
+                    };
+
+                let child_ext = prepare_extractor(
+                    py,
+                    child_col.as_ref(),
+                    field.data_type(),
+                    child_nested_model.as_ref(),
+                )?;
+                let field_name = PyString::intern(py, field_name_str).unbind();
                 children.push((field_name, child_ext));
             }
             Ok(ColumnExtractor::Struct(struct_arr, children, model_cls))

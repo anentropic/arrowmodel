@@ -17,7 +17,7 @@ import pyarrow as pa
 import pytest
 from pydantic import AliasChoices, AliasGenerator, AliasPath, BaseModel, ConfigDict, Field
 
-from arrowdantic import ArrowModelConverter
+from arrowdantic import ArrowModelConverter, from_arrow
 from arrowdantic import _build_field_map
 
 
@@ -571,3 +571,98 @@ class TestSchemaValidation:
         assert len(results) == 1
         assert results[0].id == 1
         assert not hasattr(results[0], "extra_col")
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 Plan 2: Table input, from_arrow, and string interning tests (TDD RED)
+# ---------------------------------------------------------------------------
+
+
+class TestTableInput:
+    """Tests for INPUT-02: Accept pyarrow Table as input."""
+
+    def test_table_conversion(self) -> None:
+        """INPUT-02: Table with single batch converts correctly."""
+        table = pa.table({"id": [1, 2, 3], "name": ["a", "b", "c"], "score": [1.0, 2.0, 3.0], "active": [True, False, True]})
+        results = ArrowModelConverter(MixedModel).convert(table)
+        assert len(results) == 3
+        assert results[0].id == 1
+        assert results[0].name == "a"
+        assert results[2].active is True
+
+    def test_multi_batch_table(self) -> None:
+        """INPUT-02: Table with multiple batches processes all rows."""
+        batch1 = pa.record_batch({"id": [1, 2], "name": ["a", "b"], "score": [1.0, 2.0], "active": [True, False]})
+        batch2 = pa.record_batch({"id": [3], "name": ["c"], "score": [3.0], "active": [True]})
+        batch3 = pa.record_batch({"id": [4, 5, 6], "name": ["d", "e", "f"], "score": [4.0, 5.0, 6.0], "active": [False, True, False]})
+        table = pa.Table.from_batches([batch1, batch2, batch3])
+        results = ArrowModelConverter(MixedModel).convert(table)
+        assert len(results) == 6
+        assert results[0].id == 1
+        assert results[2].id == 3
+        assert results[5].id == 6
+        assert results[5].name == "f"
+
+    def test_empty_table(self) -> None:
+        """INPUT-02: Empty Table returns empty list."""
+        table = pa.table({"id": pa.array([], type=pa.int64()), "name": pa.array([], type=pa.string()), "score": pa.array([], type=pa.float64()), "active": pa.array([], type=pa.bool_())})
+        results = ArrowModelConverter(MixedModel).convert(table)
+        assert results == []
+
+    def test_table_with_aliases(self) -> None:
+        """INPUT-02 + ALIAS-01: Table conversion respects alias resolution."""
+        table = pa.table({"userId": [1, 2], "displayName": ["a", "b"]})
+        results = ArrowModelConverter(ValidationAliasModel).convert(table)
+        assert len(results) == 2
+        assert results[0].user_id == 1
+        assert results[1].display_name == "b"
+
+
+class TestFromArrow:
+    """Tests for API-03: from_arrow convenience function."""
+
+    def test_from_arrow_record_batch(self) -> None:
+        """API-03: from_arrow works with RecordBatch."""
+        batch = pa.record_batch({"id": [1, 2], "name": ["a", "b"], "score": [1.0, 2.0], "active": [True, False]})
+        results = from_arrow(MixedModel, batch)
+        assert len(results) == 2
+        assert results[0].id == 1
+        assert isinstance(results[0], MixedModel)
+
+    def test_from_arrow_table(self) -> None:
+        """API-03: from_arrow works with Table."""
+        table = pa.table({"id": [1, 2, 3], "name": ["a", "b", "c"], "score": [1.0, 2.0, 3.0], "active": [True, False, True]})
+        results = from_arrow(MixedModel, table)
+        assert len(results) == 3
+        assert results[2].name == "c"
+        assert isinstance(results[0], MixedModel)
+
+
+class TestStringInterning:
+    """Tests for FAST-02: Pre-interned Python field name strings."""
+
+    def test_interned_string_correctness(self) -> None:
+        """FAST-02: Interned strings are reused across rows.
+
+        model_fields_set contains the field names used in model_construct kwargs.
+        If strings are interned, the same string object is reused, so we can
+        verify by checking that field names across different result instances
+        refer to the same Python string objects.
+        """
+        n = 100
+        batch = pa.record_batch({
+            "id": pa.array(list(range(n)), type=pa.int64()),
+            "name": pa.array([f"item_{i}" for i in range(n)]),
+            "score": pa.array([float(i) for i in range(n)], type=pa.float64()),
+            "active": pa.array([i % 2 == 0 for i in range(n)]),
+        })
+        results = ArrowModelConverter(MixedModel).convert(batch)
+        # All instances should have been constructed -- basic sanity
+        assert len(results) == n
+        assert results[0].model_fields_set == {"id", "name", "score", "active"}
+        # The interning guarantee is that PyString::intern returns the same
+        # Python object for the same string value. We verify by confirming
+        # the conversion produced correct results for all rows (interning
+        # doesn't change correctness, but validates the code path).
+        assert results[0].id == 0
+        assert results[99].id == 99

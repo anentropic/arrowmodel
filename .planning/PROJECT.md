@@ -35,6 +35,13 @@ Dict-free, single-step conversion from Arrow buffers to Pydantic model instances
 - ✓ Iterator/generator API for lazy model yielding (per-batch granularity) — Phase 5
 - ✓ Type stubs (`_core.pyi`) for the Rust extension module — Phase 5
 - ✓ basedpyright strict mode without suppressions — Phase 5
+- ✓ Extended scalar types: Float16, Decimal128/256/32/64, Date64, Time32/Time64 — Phase 6
+- ✓ Binary types: Binary, LargeBinary, FixedSizeBinary, Utf8View, BinaryView — Phase 6
+- ✓ Interval types → `tuple[int, int, int]` (months, days, nanos) — Phase 6
+- ✓ FixedSizeList → Python `list` — Phase 6
+- ✓ Map → `list[tuple[K, V]]` matching pyarrow convention — Phase 6
+- ✓ RunEndEncoded → pre-unpacked to value type (like Dictionary) — Phase 6
+- ✓ Union (sparse + dense) → value from active variant per row — Phase 6
 
 ### Active
 
@@ -46,7 +53,7 @@ Dict-free, single-step conversion from Arrow buffers to Pydantic model instances
 - Arrow writing (Pydantic → Arrow) — read-only for v1
 - ORM or database layer integration — this is a data conversion library
 - `AliasPath` and `AliasGenerator` support — complex alias resolution deferred, raise `NotImplementedError` if encountered
-- `FixedSizeList` mapping — needs resolution heuristic (list vs tuple vs ndarray), deferred
+- `FixedSizeList` mapping heuristic (list vs tuple vs ndarray) — resolved as list in Phase 6
 - `strict=True` mode for extra columns — document silent-ignore behaviour, add strict flag later
 - Polars-specific handling — Polars exports via C Data Interface so it works, but no Polars-specific code paths
 - Replacing pyarrow or Polars for general Arrow work
@@ -97,4 +104,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-22 after Phase 5 completion (v1.0 milestone complete)*
+*Last updated: 2026-03-22 after Phase 6 completion (full pyarrow type coverage)*

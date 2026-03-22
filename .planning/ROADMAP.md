@@ -17,6 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Core Conversion** - Alias resolution, schema error handling, Table input, convenience API, and pre-interned strings
 - [ ] **Phase 4: Extended Types** - Temporal types, lists, structs, dictionary arrays, and null type
 - [ ] **Phase 5: Validated Path and API Polish** - Opt-in Pydantic validation, iterator API, and type stubs
+- [ ] **Phase 6: Support All PyArrow Types** - Float16, Decimal, Date64, Time, Interval, Binary, Views, FixedSizeList, Map, REE, Union
 
 ## Phase Details
 
@@ -94,10 +95,29 @@ Plans:
 - [x] 05-01-PLAN.md -- Validated conversion path: serde_json row serialization in Rust + model_validate_json
 - [x] 05-02-PLAN.md -- Iterator API, type stubs, and basedpyright suppression removal
 
+### Phase 6: Support All PyArrow Types
+**Goal**: Complete Arrow DataType coverage by adding support for Float16, Decimal (128/256/32/64), Date64, Time32/64, Interval (all 3 variants), Binary/LargeBinary/FixedSizeBinary, Utf8View/BinaryView, FixedSizeList, Map, RunEndEncoded, and Union (sparse + dense)
+**Depends on**: Phase 5
+**Requirements**: EXT-FLOAT16, EXT-DEC128, EXT-DEC256, EXT-DEC32, EXT-DEC64, EXT-DATE64, EXT-TIME32, EXT-TIME64, EXT-INTERVAL, EXT-BINARY, EXT-FSBINARY, EXT-UTF8VIEW, EXT-BINVIEW, EXT-FSLIST, EXT-MAP, EXT-REE, EXT-UNION
+**Success Criteria** (what must be TRUE):
+  1. All scalar types convert correctly: Float16 to float, Decimal128/256/32/64 to Decimal (precision preserved), Date64 to datetime.datetime, Time32/64 to datetime.time
+  2. Binary types produce bytes: Binary, LargeBinary, FixedSizeBinary, BinaryView
+  3. View types work identically to their non-view counterparts: Utf8View to str, BinaryView to bytes
+  4. Interval types produce (months, days, nanos) tuples for all 3 variants
+  5. FixedSizeList and Map container types extract elements correctly with recursive handling
+  6. RunEndEncoded columns are transparently pre-unpacked (same pattern as Dictionary)
+  7. Union columns (sparse and dense) extract the active variant's value per row
+  8. All new types work in both fast path (model_construct) and validated path (model_validate_json)
+**Plans**: 2 plans
+
+Plans:
+- [ ] 06-01-PLAN.md -- Scalar, temporal, and binary types: Float16, Decimal128/256/32/64, Date64, Time32/64, Binary, FixedSizeBinary, Utf8View, BinaryView
+- [ ] 06-02-PLAN.md -- Container and compound types: Interval (3 variants), FixedSizeList, Map, RunEndEncoded, Union (sparse + dense)
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -106,3 +126,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 3. Core Conversion | 2/2 | Complete    | 2026-03-22 |
 | 4. Extended Types | 0/2 | In Progress | - |
 | 5. Validated Path and API Polish | 1/2 | In Progress|  |
+| 6. Support All PyArrow Types | 0/2 | Not Started | - |

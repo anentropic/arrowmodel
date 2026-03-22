@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-22T19:22:16.982Z"
+last_updated: "2026-03-22T19:28:45.438Z"
 last_activity: 2026-03-22
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 12
-  completed_plans: 11
+  completed_plans: 12
 ---
 
 # Project State
@@ -57,6 +57,7 @@ Plan: 2 of 2
 | Phase 05-validated-path-and-api-polish P01 | 5min | 1 tasks | 4 files |
 | Phase 05 P02 | 5min | 2 tasks | 4 files |
 | Phase 06-support-all-pyarrow-types P01 | 10min | 2 tasks | 4 files |
+| Phase 06-support-all-pyarrow-types P02 | 3min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -102,6 +103,9 @@ Recent decisions affecting current work:
 - [Phase 06-support-all-pyarrow-types]: Time types decompose raw int to h/m/s/us for PyTime; ns truncated to us
 - [Phase 06-support-all-pyarrow-types]: Binary validated path uses base64 encoding; Pydantic receives as UTF-8 bytes
 - [Phase 06-support-all-pyarrow-types]: View type fixtures use >12-byte values to avoid pyarrow inline StringView segfault
+- [Phase 06-support-all-pyarrow-types]: Interval types normalize to (months, days, nanos) i64 tuple for all 3 variants
+- [Phase 06-support-all-pyarrow-types]: Union dispatch uses arr.offsets() presence to determine sparse vs dense mode
+- [Phase 06-support-all-pyarrow-types]: REE pre-unpacking mirrors Dictionary pattern in unpack_columns via arrow_cast::cast
 
 ### Pending Todos
 
@@ -123,6 +127,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-22T19:22:16.979Z
+Last session: 2026-03-22T19:28:45.435Z
 Last activity: 2026-03-22
 Resume file: None

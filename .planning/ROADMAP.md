@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Core Conversion** - Alias resolution, schema error handling, Table input, convenience API, and pre-interned strings
 - [ ] **Phase 4: Extended Types** - Temporal types, lists, structs, dictionary arrays, and null type
 - [ ] **Phase 5: Validated Path and API Polish** - Opt-in Pydantic validation, iterator API, and type stubs
-- [ ] **Phase 6: Support All PyArrow Types** - Float16, Decimal, Date64, Time, Interval, Binary, Views, FixedSizeList, Map, REE, Union
+- [x] **Phase 6: Support All PyArrow Types** - Float16, Decimal, Date64, Time, Interval, Binary, Views, FixedSizeList, Map, REE, Union (completed 2026-03-22)
 
 ## Phase Details
 
@@ -112,7 +112,7 @@ Plans:
 
 Plans:
 - [x] 06-01-PLAN.md -- Scalar, temporal, and binary types: Float16, Decimal128/256/32/64, Date64, Time32/64, Binary, FixedSizeBinary, Utf8View, BinaryView
-- [ ] 06-02-PLAN.md -- Container and compound types: Interval (3 variants), FixedSizeList, Map, RunEndEncoded, Union (sparse + dense)
+- [x] 06-02-PLAN.md -- Container and compound types: Interval (3 variants), FixedSizeList, Map, RunEndEncoded, Union (sparse + dense)
 
 ## Progress
 
@@ -126,4 +126,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 3. Core Conversion | 2/2 | Complete    | 2026-03-22 |
 | 4. Extended Types | 0/2 | In Progress | - |
 | 5. Validated Path and API Polish | 1/2 | In Progress|  |
-| 6. Support All PyArrow Types | 1/2 | In Progress|  |
+| 6. Support All PyArrow Types | 2/2 | Complete   | 2026-03-22 |

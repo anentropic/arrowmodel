@@ -246,3 +246,173 @@ def struct_batch() -> pa.RecordBatch:
             ),
         }
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 6: Extended type fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def float16_batch() -> pa.RecordBatch:
+    """RecordBatch with Float16 column including a null."""
+    return pa.record_batch(
+        {
+            "val": pa.array([1.5, None, -2.5], type=pa.float16()),
+        }
+    )
+
+
+@pytest.fixture
+def decimal128_batch() -> pa.RecordBatch:
+    """RecordBatch with Decimal128 column including a null."""
+    import decimal
+
+    return pa.record_batch(
+        {
+            "amount": pa.array(
+                [decimal.Decimal("12345.6789"), None, decimal.Decimal("-99999.9999")],
+                type=pa.decimal128(10, 4),
+            ),
+        }
+    )
+
+
+@pytest.fixture
+def decimal256_batch() -> pa.RecordBatch:
+    """RecordBatch with Decimal256 column including a null."""
+    import decimal
+
+    return pa.record_batch(
+        {
+            "big_amount": pa.array(
+                [
+                    decimal.Decimal("123456789012345678901234567890.12345678"),
+                    None,
+                ],
+                type=pa.decimal256(48, 8),
+            ),
+        }
+    )
+
+
+@pytest.fixture
+def date64_batch() -> pa.RecordBatch:
+    """RecordBatch with Date64 column including a null."""
+    return pa.record_batch(
+        {
+            "ts": pa.array(
+                [1705312200000, None, 0],  # 2024-01-15T09:50:00Z, null, epoch
+                type=pa.date64(),
+            ),
+        }
+    )
+
+
+@pytest.fixture
+def time32_second_batch() -> pa.RecordBatch:
+    """RecordBatch with Time32(second) column."""
+    return pa.record_batch(
+        {
+            "t": pa.array(
+                [37800, None, 0], type=pa.time32("s")
+            ),  # 10:30:00, null, 00:00:00
+        }
+    )
+
+
+@pytest.fixture
+def time32_ms_batch() -> pa.RecordBatch:
+    """RecordBatch with Time32(millisecond) column."""
+    return pa.record_batch(
+        {
+            "t": pa.array(
+                [37800500, None, 0], type=pa.time32("ms")
+            ),  # 10:30:00.500, null, 00:00:00
+        }
+    )
+
+
+@pytest.fixture
+def time64_us_batch() -> pa.RecordBatch:
+    """RecordBatch with Time64(microsecond) column."""
+    return pa.record_batch(
+        {
+            "t": pa.array(
+                [37800500123, None, 0], type=pa.time64("us")
+            ),  # 10:30:00.500123
+        }
+    )
+
+
+@pytest.fixture
+def time64_ns_batch() -> pa.RecordBatch:
+    """RecordBatch with Time64(nanosecond) column."""
+    return pa.record_batch(
+        {
+            "t": pa.array(
+                [37800500123456, None, 0], type=pa.time64("ns")
+            ),  # 10:30:00.500123456 -> truncate to .500123
+        }
+    )
+
+
+@pytest.fixture
+def binary_batch() -> pa.RecordBatch:
+    """RecordBatch with Binary column including a null."""
+    return pa.record_batch(
+        {
+            "data": pa.array([b"\x00\x01\x02", None, b"\xff"], type=pa.binary()),
+        }
+    )
+
+
+@pytest.fixture
+def large_binary_batch() -> pa.RecordBatch:
+    """RecordBatch with LargeBinary column including a null."""
+    return pa.record_batch(
+        {
+            "data": pa.array(
+                [b"hello", None, b"world"], type=pa.large_binary()
+            ),
+        }
+    )
+
+
+@pytest.fixture
+def fixed_size_binary_batch() -> pa.RecordBatch:
+    """RecordBatch with FixedSizeBinary(4) column including a null."""
+    return pa.record_batch(
+        {
+            "hash": pa.array(
+                [b"\x01\x02\x03\x04", None, b"\xaa\xbb\xcc\xdd"],
+                type=pa.binary(4),
+            ),
+        }
+    )
+
+
+@pytest.fixture
+def utf8view_batch() -> pa.RecordBatch:
+    """RecordBatch with Utf8View column including a null.
+
+    Uses strings >12 bytes to avoid pyarrow C Data Interface segfault
+    with inline StringView values (upstream pyarrow bug).
+    """
+    arr = pa.array(
+        ["hello_world_test", None, "world_hello_test"]
+    ).cast(pa.string_view())
+    return pa.record_batch({"name": arr})
+
+
+@pytest.fixture
+def binaryview_batch() -> pa.RecordBatch:
+    """RecordBatch with BinaryView column including a null.
+
+    Uses values >12 bytes to avoid pyarrow C Data Interface segfault
+    with inline BinaryView values (upstream pyarrow bug).
+    """
+    arr = pa.array(
+        [b"abc_data_padding!", None, b"xyz_data_padding!"]
+    ).cast(pa.binary_view())
+    return pa.record_batch({"data": arr})

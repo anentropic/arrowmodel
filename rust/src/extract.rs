@@ -4,16 +4,19 @@ use arrow_array::{
         as_list_array, as_large_list_array, as_struct_array,
     },
     types::{
-        Date32Type, DurationMicrosecondType, DurationMillisecondType, DurationNanosecondType,
-        DurationSecondType, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
-        TimestampMicrosecondType, TimestampMillisecondType, TimestampNanosecondType,
-        TimestampSecondType, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
+        Date32Type, Date64Type, DurationMicrosecondType, DurationMillisecondType,
+        DurationNanosecondType, DurationSecondType, Float16Type, Float32Type, Float64Type,
+        Int16Type, Int32Type, Int64Type, Int8Type, Time32MillisecondType, Time32SecondType,
+        Time64MicrosecondType, Time64NanosecondType, TimestampMicrosecondType,
+        TimestampMillisecondType, TimestampNanosecondType, TimestampSecondType, UInt16Type,
+        UInt32Type, UInt64Type, UInt8Type,
     },
-    Array, BooleanArray, LargeStringArray, ListArray, LargeListArray, StringArray, StructArray,
+    Array, BinaryArray, BinaryViewArray, BooleanArray, FixedSizeBinaryArray, LargeBinaryArray,
+    LargeStringArray, ListArray, LargeListArray, StringArray, StringViewArray, StructArray,
 };
 use arrow_schema::{DataType, TimeUnit};
 use pyo3::prelude::*;
-use pyo3::types::{PyDateTime, PyDict, PyList, PyString, PyTzInfo};
+use pyo3::types::{PyBytes, PyDateTime, PyDict, PyList, PyString, PyTime, PyTzInfo};
 use serde_json::{Map, Number, Value};
 
 type PyObject = Py<PyAny>;
@@ -52,6 +55,23 @@ pub enum ColumnExtractor<'a> {
         Vec<(Py<PyString>, ColumnExtractor<'a>)>,
         PyObject, // nested Pydantic model class
     ),
+    // Extended scalar types
+    Float16(&'a arrow_array::Float16Array),
+    Decimal128(&'a arrow_array::Decimal128Array),
+    Decimal256(&'a arrow_array::Decimal256Array),
+    Decimal32(&'a arrow_array::Decimal32Array),
+    Decimal64(&'a arrow_array::Decimal64Array),
+    // Extended temporal types
+    Date64(&'a arrow_array::Date64Array),
+    Time32(&'a dyn Array, TimeUnit),
+    Time64(&'a dyn Array, TimeUnit),
+    // Binary types
+    Binary(&'a BinaryArray),
+    LargeBinary(&'a LargeBinaryArray),
+    FixedSizeBinary(&'a FixedSizeBinaryArray),
+    // View types
+    Utf8View(&'a StringViewArray),
+    BinaryView(&'a BinaryViewArray),
     // Null type -- always returns None
     Null,
 }
@@ -152,6 +172,63 @@ pub fn prepare_extractor<'a>(
             }
             Ok(ColumnExtractor::Struct(struct_arr, children, model_cls))
         }
+        // Extended scalar types
+        DataType::Float16 => Ok(ColumnExtractor::Float16(
+            as_primitive_array::<Float16Type>(col),
+        )),
+        DataType::Decimal128(_, _) => Ok(ColumnExtractor::Decimal128(
+            col.as_any()
+                .downcast_ref::<arrow_array::Decimal128Array>()
+                .expect("Decimal128Array"),
+        )),
+        DataType::Decimal256(_, _) => Ok(ColumnExtractor::Decimal256(
+            col.as_any()
+                .downcast_ref::<arrow_array::Decimal256Array>()
+                .expect("Decimal256Array"),
+        )),
+        DataType::Decimal32(_, _) => Ok(ColumnExtractor::Decimal32(
+            col.as_any()
+                .downcast_ref::<arrow_array::Decimal32Array>()
+                .expect("Decimal32Array"),
+        )),
+        DataType::Decimal64(_, _) => Ok(ColumnExtractor::Decimal64(
+            col.as_any()
+                .downcast_ref::<arrow_array::Decimal64Array>()
+                .expect("Decimal64Array"),
+        )),
+        // Extended temporal types
+        DataType::Date64 => Ok(ColumnExtractor::Date64(
+            as_primitive_array::<Date64Type>(col),
+        )),
+        DataType::Time32(unit) => Ok(ColumnExtractor::Time32(col, *unit)),
+        DataType::Time64(unit) => Ok(ColumnExtractor::Time64(col, *unit)),
+        // Binary types
+        DataType::Binary => Ok(ColumnExtractor::Binary(
+            col.as_any()
+                .downcast_ref::<BinaryArray>()
+                .expect("BinaryArray"),
+        )),
+        DataType::LargeBinary => Ok(ColumnExtractor::LargeBinary(
+            col.as_any()
+                .downcast_ref::<LargeBinaryArray>()
+                .expect("LargeBinaryArray"),
+        )),
+        DataType::FixedSizeBinary(_) => Ok(ColumnExtractor::FixedSizeBinary(
+            col.as_any()
+                .downcast_ref::<FixedSizeBinaryArray>()
+                .expect("FixedSizeBinaryArray"),
+        )),
+        // View types
+        DataType::Utf8View => Ok(ColumnExtractor::Utf8View(
+            col.as_any()
+                .downcast_ref::<StringViewArray>()
+                .expect("StringViewArray"),
+        )),
+        DataType::BinaryView => Ok(ColumnExtractor::BinaryView(
+            col.as_any()
+                .downcast_ref::<BinaryViewArray>()
+                .expect("BinaryViewArray"),
+        )),
         DataType::Null => Ok(ColumnExtractor::Null),
         _ => Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
             "Unsupported Arrow type: {data_type:?}"
@@ -333,6 +410,162 @@ impl<'a> ColumnExtractor<'a> {
                         .bind(py)
                         .call_method("model_construct", (), Some(&kwargs))?
                         .unbind())
+                }
+            }
+            // --- Extended scalar types ---
+            ColumnExtractor::Float16(arr) => {
+                if arr.is_null(row) {
+                    Ok(py.None())
+                } else {
+                    Ok(arr.value(row).to_f32().into_pyobject(py)?.into_any().unbind())
+                }
+            }
+            ColumnExtractor::Decimal128(arr) => {
+                if arr.is_null(row) {
+                    Ok(py.None())
+                } else {
+                    let s = arr.value_as_string(row);
+                    let decimal_mod = py.import("decimal")?;
+                    let decimal_cls = decimal_mod.getattr("Decimal")?;
+                    Ok(decimal_cls.call1((s,))?.unbind())
+                }
+            }
+            ColumnExtractor::Decimal256(arr) => {
+                if arr.is_null(row) {
+                    Ok(py.None())
+                } else {
+                    let s = arr.value_as_string(row);
+                    let decimal_mod = py.import("decimal")?;
+                    let decimal_cls = decimal_mod.getattr("Decimal")?;
+                    Ok(decimal_cls.call1((s,))?.unbind())
+                }
+            }
+            ColumnExtractor::Decimal32(arr) => {
+                if arr.is_null(row) {
+                    Ok(py.None())
+                } else {
+                    let s = arr.value_as_string(row);
+                    let decimal_mod = py.import("decimal")?;
+                    let decimal_cls = decimal_mod.getattr("Decimal")?;
+                    Ok(decimal_cls.call1((s,))?.unbind())
+                }
+            }
+            ColumnExtractor::Decimal64(arr) => {
+                if arr.is_null(row) {
+                    Ok(py.None())
+                } else {
+                    let s = arr.value_as_string(row);
+                    let decimal_mod = py.import("decimal")?;
+                    let decimal_cls = decimal_mod.getattr("Decimal")?;
+                    Ok(decimal_cls.call1((s,))?.unbind())
+                }
+            }
+            // --- Extended temporal types ---
+            ColumnExtractor::Date64(arr) => {
+                if arr.is_null(row) {
+                    Ok(py.None())
+                } else {
+                    let ms = arr.value(row);
+                    let secs = ms.div_euclid(1000);
+                    let nsec = (ms.rem_euclid(1000) as u32) * 1_000_000;
+                    match chrono::DateTime::from_timestamp(secs, nsec) {
+                        Some(utc) => Ok(utc.naive_utc().into_pyobject(py)?.into_any().unbind()),
+                        None => Ok(py.None()),
+                    }
+                }
+            }
+            ColumnExtractor::Time32(arr, unit) => {
+                if arr.is_null(row) {
+                    Ok(py.None())
+                } else {
+                    match unit {
+                        TimeUnit::Second => {
+                            let total_secs = as_primitive_array::<Time32SecondType>(*arr).value(row);
+                            let h = (total_secs / 3600) as u8;
+                            let m = ((total_secs % 3600) / 60) as u8;
+                            let s = (total_secs % 60) as u8;
+                            Ok(PyTime::new(py, h, m, s, 0, None)?.into_any().unbind())
+                        }
+                        TimeUnit::Millisecond => {
+                            let total_ms = as_primitive_array::<Time32MillisecondType>(*arr).value(row);
+                            let total_secs = total_ms / 1000;
+                            let us = ((total_ms % 1000) * 1000) as u32;
+                            let h = (total_secs / 3600) as u8;
+                            let m = ((total_secs % 3600) / 60) as u8;
+                            let s = (total_secs % 60) as u8;
+                            Ok(PyTime::new(py, h, m, s, us, None)?.into_any().unbind())
+                        }
+                        _ => Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                            "Time32 only supports Second and Millisecond units",
+                        )),
+                    }
+                }
+            }
+            ColumnExtractor::Time64(arr, unit) => {
+                if arr.is_null(row) {
+                    Ok(py.None())
+                } else {
+                    match unit {
+                        TimeUnit::Microsecond => {
+                            let total_us = as_primitive_array::<Time64MicrosecondType>(*arr).value(row);
+                            let total_secs = (total_us / 1_000_000) as i32;
+                            let us = (total_us % 1_000_000) as u32;
+                            let h = (total_secs / 3600) as u8;
+                            let m = ((total_secs % 3600) / 60) as u8;
+                            let s = (total_secs % 60) as u8;
+                            Ok(PyTime::new(py, h, m, s, us, None)?.into_any().unbind())
+                        }
+                        TimeUnit::Nanosecond => {
+                            let total_ns = as_primitive_array::<Time64NanosecondType>(*arr).value(row);
+                            let total_us = total_ns / 1000; // truncate to microsecond (Pitfall 4)
+                            let total_secs = (total_us / 1_000_000) as i32;
+                            let us = (total_us % 1_000_000) as u32;
+                            let h = (total_secs / 3600) as u8;
+                            let m = ((total_secs % 3600) / 60) as u8;
+                            let s = (total_secs % 60) as u8;
+                            Ok(PyTime::new(py, h, m, s, us, None)?.into_any().unbind())
+                        }
+                        _ => Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                            "Time64 only supports Microsecond and Nanosecond units",
+                        )),
+                    }
+                }
+            }
+            // --- Binary types ---
+            ColumnExtractor::Binary(arr) => {
+                if arr.is_null(row) {
+                    Ok(py.None())
+                } else {
+                    Ok(PyBytes::new(py, arr.value(row)).into_any().unbind())
+                }
+            }
+            ColumnExtractor::LargeBinary(arr) => {
+                if arr.is_null(row) {
+                    Ok(py.None())
+                } else {
+                    Ok(PyBytes::new(py, arr.value(row)).into_any().unbind())
+                }
+            }
+            ColumnExtractor::FixedSizeBinary(arr) => {
+                if arr.is_null(row) {
+                    Ok(py.None())
+                } else {
+                    Ok(PyBytes::new(py, arr.value(row)).into_any().unbind())
+                }
+            }
+            // --- View types ---
+            ColumnExtractor::Utf8View(arr) => {
+                if arr.is_null(row) {
+                    Ok(py.None())
+                } else {
+                    Ok(PyString::new(py, arr.value(row)).into_any().unbind())
+                }
+            }
+            ColumnExtractor::BinaryView(arr) => {
+                if arr.is_null(row) {
+                    Ok(py.None())
+                } else {
+                    Ok(PyBytes::new(py, arr.value(row)).into_any().unbind())
                 }
             }
             // Null type -- always returns None unconditionally.
@@ -548,6 +781,202 @@ impl<'a> ColumnExtractor<'a> {
                         map.insert(key, value);
                     }
                     Ok(Value::Object(map))
+                }
+            }
+            // --- Extended scalar types ---
+            ColumnExtractor::Float16(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    let v = arr.value(row).to_f64();
+                    if v.is_nan() || v.is_infinite() {
+                        Ok(Value::Null)
+                    } else {
+                        Ok(Number::from_f64(v)
+                            .map(Value::Number)
+                            .unwrap_or(Value::Null))
+                    }
+                }
+            }
+            ColumnExtractor::Decimal128(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    Ok(Value::String(arr.value_as_string(row)))
+                }
+            }
+            ColumnExtractor::Decimal256(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    Ok(Value::String(arr.value_as_string(row)))
+                }
+            }
+            ColumnExtractor::Decimal32(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    Ok(Value::String(arr.value_as_string(row)))
+                }
+            }
+            ColumnExtractor::Decimal64(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    Ok(Value::String(arr.value_as_string(row)))
+                }
+            }
+            // --- Extended temporal types ---
+            ColumnExtractor::Date64(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    let ms = arr.value(row);
+                    let secs = ms.div_euclid(1000);
+                    let nsec = (ms.rem_euclid(1000) as u32) * 1_000_000;
+                    match chrono::DateTime::from_timestamp(secs, nsec) {
+                        Some(utc) => Ok(Value::String(
+                            utc.naive_utc()
+                                .format("%Y-%m-%dT%H:%M:%S%.f")
+                                .to_string(),
+                        )),
+                        None => Ok(Value::Null),
+                    }
+                }
+            }
+            ColumnExtractor::Time32(arr, unit) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    let (h, m, s, us) = match unit {
+                        TimeUnit::Second => {
+                            let total_secs =
+                                as_primitive_array::<Time32SecondType>(*arr).value(row);
+                            (
+                                (total_secs / 3600) as u8,
+                                ((total_secs % 3600) / 60) as u8,
+                                (total_secs % 60) as u8,
+                                0u32,
+                            )
+                        }
+                        TimeUnit::Millisecond => {
+                            let total_ms =
+                                as_primitive_array::<Time32MillisecondType>(*arr).value(row);
+                            let total_secs = total_ms / 1000;
+                            (
+                                (total_secs / 3600) as u8,
+                                ((total_secs % 3600) / 60) as u8,
+                                (total_secs % 60) as u8,
+                                ((total_ms % 1000) * 1000) as u32,
+                            )
+                        }
+                        _ => {
+                            return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                                "Time32 only supports Second and Millisecond units",
+                            ))
+                        }
+                    };
+                    if us > 0 {
+                        Ok(Value::String(format!(
+                            "{:02}:{:02}:{:02}.{:06}",
+                            h, m, s, us
+                        )))
+                    } else {
+                        Ok(Value::String(format!("{:02}:{:02}:{:02}", h, m, s)))
+                    }
+                }
+            }
+            ColumnExtractor::Time64(arr, unit) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    let (h, m, s, us) = match unit {
+                        TimeUnit::Microsecond => {
+                            let total_us =
+                                as_primitive_array::<Time64MicrosecondType>(*arr).value(row);
+                            let total_secs = (total_us / 1_000_000) as i32;
+                            (
+                                (total_secs / 3600) as u8,
+                                ((total_secs % 3600) / 60) as u8,
+                                (total_secs % 60) as u8,
+                                (total_us % 1_000_000) as u32,
+                            )
+                        }
+                        TimeUnit::Nanosecond => {
+                            let total_ns =
+                                as_primitive_array::<Time64NanosecondType>(*arr).value(row);
+                            let total_us = total_ns / 1000; // truncate ns to us
+                            let total_secs = (total_us / 1_000_000) as i32;
+                            (
+                                (total_secs / 3600) as u8,
+                                ((total_secs % 3600) / 60) as u8,
+                                (total_secs % 60) as u8,
+                                (total_us % 1_000_000) as u32,
+                            )
+                        }
+                        _ => {
+                            return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                                "Time64 only supports Microsecond and Nanosecond units",
+                            ))
+                        }
+                    };
+                    if us > 0 {
+                        Ok(Value::String(format!(
+                            "{:02}:{:02}:{:02}.{:06}",
+                            h, m, s, us
+                        )))
+                    } else {
+                        Ok(Value::String(format!("{:02}:{:02}:{:02}", h, m, s)))
+                    }
+                }
+            }
+            // --- Binary types ---
+            ColumnExtractor::Binary(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    use base64::Engine;
+                    let encoded =
+                        base64::engine::general_purpose::STANDARD.encode(arr.value(row));
+                    Ok(Value::String(encoded))
+                }
+            }
+            ColumnExtractor::LargeBinary(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    use base64::Engine;
+                    let encoded =
+                        base64::engine::general_purpose::STANDARD.encode(arr.value(row));
+                    Ok(Value::String(encoded))
+                }
+            }
+            ColumnExtractor::FixedSizeBinary(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    use base64::Engine;
+                    let encoded =
+                        base64::engine::general_purpose::STANDARD.encode(arr.value(row));
+                    Ok(Value::String(encoded))
+                }
+            }
+            // --- View types ---
+            ColumnExtractor::Utf8View(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    Ok(Value::String(arr.value(row).to_owned()))
+                }
+            }
+            ColumnExtractor::BinaryView(arr) => {
+                if arr.is_null(row) {
+                    Ok(Value::Null)
+                } else {
+                    use base64::Engine;
+                    let encoded =
+                        base64::engine::general_purpose::STANDARD.encode(arr.value(row));
+                    Ok(Value::String(encoded))
                 }
             }
             ColumnExtractor::Null => Ok(Value::Null),

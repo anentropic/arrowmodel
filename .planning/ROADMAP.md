@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Core Conversion** - Alias resolution, schema error handling, Table input, convenience API, and pre-interned strings
 - [ ] **Phase 4: Extended Types** - Temporal types, lists, structs, dictionary arrays, and null type
 - [ ] **Phase 5: Validated Path and API Polish** - Opt-in Pydantic validation, iterator API, and type stubs
-- [x] **Phase 6: Support All PyArrow Types** - Float16, Decimal, Date64, Time, Interval, Binary, Views, FixedSizeList, Map, REE, Union (completed 2026-03-22)
+- [ ] **Phase 6: Support All PyArrow Types** - Float16, Decimal, Date64, Time, Interval, Binary, Views, FixedSizeList, Map, REE, Union (gap closure in progress)
 
 ## Phase Details
 
@@ -108,11 +108,13 @@ Plans:
   6. RunEndEncoded columns are transparently pre-unpacked (same pattern as Dictionary)
   7. Union columns (sparse and dense) extract the active variant's value per row
   8. All new types work in both fast path (model_construct) and validated path (model_validate_json)
-**Plans**: 2 plans
+**Plans**: 4 plans
 
 Plans:
 - [x] 06-01-PLAN.md -- Scalar, temporal, and binary types: Float16, Decimal128/256/32/64, Date64, Time32/64, Binary, FixedSizeBinary, Utf8View, BinaryView
 - [x] 06-02-PLAN.md -- Container and compound types: Interval (3 variants), FixedSizeList, Map, RunEndEncoded, Union (sparse + dense)
+- [ ] 06-03-PLAN.md -- Gap closure: Fix REE bug in convert_table/convert_table_validated, add Decimal32/64 test coverage
+- [ ] 06-04-PLAN.md -- Gap closure: Add Phase 6 requirement IDs to REQUIREMENTS.md traceability
 
 ## Progress
 
@@ -126,4 +128,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 3. Core Conversion | 2/2 | Complete    | 2026-03-22 |
 | 4. Extended Types | 0/2 | In Progress | - |
 | 5. Validated Path and API Polish | 1/2 | In Progress|  |
-| 6. Support All PyArrow Types | 2/2 | Complete   | 2026-03-22 |
+| 6. Support All PyArrow Types | 2/4 | Gap Closure | - |

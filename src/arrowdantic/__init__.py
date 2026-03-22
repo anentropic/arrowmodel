@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import typing
+from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
 from pydantic import AliasChoices, AliasPath, BaseModel
@@ -12,7 +13,7 @@ from arrowdantic import _core as _core
 if TYPE_CHECKING:
     import pyarrow as pa
 
-__all__ = ["ArrowModelConverter", "from_arrow", "_build_field_map", "_get_nested_model", "_core"]
+__all__ = ["ArrowModelConverter", "from_arrow", "iter_arrow", "_build_field_map", "_get_nested_model", "_core"]
 
 
 def _get_nested_model(annotation: type | None) -> type[BaseModel] | None:
@@ -194,6 +195,33 @@ class ArrowModelConverter:
                 )
             return _core.convert_record_batch(data, self._model_class, field_specs)
 
+    def iter(self, data: pa.RecordBatch | pa.Table) -> Iterator[BaseModel]:
+        """Lazily yield model instances one batch at a time.
+
+        For Tables with multiple batches, only one batch's worth of model
+        instances is materialized in memory at a time. For RecordBatch input,
+        behavior is equivalent to iterating over convert() results.
+
+        Per API-04: Iterator/generator API for lazy model yielding.
+        """
+        field_specs = self._resolve_columns(data.schema)
+
+        if hasattr(data, "to_batches"):
+            batches = data.to_batches()
+        else:
+            batches = [data]
+
+        for batch in batches:
+            if self._validate:
+                results = _core.convert_record_batch_validated(
+                    batch, self._model_class, field_specs
+                )
+            else:
+                results = _core.convert_record_batch(
+                    batch, self._model_class, field_specs
+                )
+            yield from results
+
 
 def from_arrow(
     model_class: type[BaseModel],
@@ -209,3 +237,21 @@ def from_arrow(
     """
     converter = ArrowModelConverter(model_class)
     return converter.convert(data)
+
+
+def iter_arrow(
+    model_class: type[BaseModel],
+    data: pa.RecordBatch | pa.Table,
+    *,
+    validate: bool = False,
+) -> Iterator[BaseModel]:
+    """One-shot lazy iteration from Arrow data to Pydantic model instances.
+
+    Convenience function that creates a temporary ArrowModelConverter
+    and calls iter(). For repeated conversions of the same model,
+    prefer creating an ArrowModelConverter instance and reusing it.
+
+    Per API-04: Iterator/generator API for lazy model yielding.
+    """
+    converter = ArrowModelConverter(model_class, validate=validate)
+    yield from converter.iter(data)

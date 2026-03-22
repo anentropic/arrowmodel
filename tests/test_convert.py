@@ -1340,3 +1340,69 @@ class TestValidationErrors:
         error_str = str(exc_info.value)
         # Should mention the field or type issue
         assert len(error_str) > 10  # meaningful error message
+
+
+class TestIteratorAPI:
+    """Tests for API-04: Iterator/generator API for lazy model yielding."""
+
+    def test_iter_record_batch(self) -> None:
+        """API-04: iter() yields models from RecordBatch."""
+        batch = pa.record_batch({"id": [1, 2, 3], "name": ["a", "b", "c"],
+                                 "score": [1.0, 2.0, 3.0], "active": [True, False, True]})
+        converter = ArrowModelConverter(MixedModel)
+        results = list(converter.iter(batch))
+        assert len(results) == 3
+        assert results[0].id == 1
+        assert results[2].name == "c"
+        assert isinstance(results[0], MixedModel)
+
+    def test_iter_table(self) -> None:
+        """API-04: iter() yields models from Table (multi-batch)."""
+        batch1 = pa.record_batch({"id": [1, 2], "name": ["a", "b"],
+                                  "score": [1.0, 2.0], "active": [True, False]})
+        batch2 = pa.record_batch({"id": [3], "name": ["c"],
+                                  "score": [3.0], "active": [True]})
+        table = pa.Table.from_batches([batch1, batch2])
+        converter = ArrowModelConverter(MixedModel)
+        results = list(converter.iter(table))
+        assert len(results) == 3
+        assert results[0].id == 1
+        assert results[2].id == 3
+
+    def test_iter_is_generator(self) -> None:
+        """API-04: iter() returns a generator (lazy, not pre-materialized)."""
+        import types
+        batch = pa.record_batch({"id": [1], "name": ["a"],
+                                 "score": [1.0], "active": [True]})
+        converter = ArrowModelConverter(MixedModel)
+        result = converter.iter(batch)
+        assert isinstance(result, types.GeneratorType)
+
+    def test_iter_validated(self) -> None:
+        """API-04: iter() respects validate=True flag."""
+        batch = pa.record_batch({"id": [1, 2], "name": ["a", "b"],
+                                 "score": [1.0, 2.0], "active": [True, False]})
+        converter = ArrowModelConverter(MixedModel, validate=True)
+        results = list(converter.iter(batch))
+        assert len(results) == 2
+        assert results[0].id == 1
+
+    def test_iter_arrow_convenience(self) -> None:
+        """API-04: iter_arrow() convenience function works."""
+        from arrowdantic import iter_arrow
+        batch = pa.record_batch({"id": [1, 2], "name": ["a", "b"],
+                                 "score": [1.0, 2.0], "active": [True, False]})
+        results = list(iter_arrow(MixedModel, batch))
+        assert len(results) == 2
+        assert results[0].id == 1
+        assert isinstance(results[0], MixedModel)
+
+    def test_iter_empty_table(self) -> None:
+        """API-04: iter() on empty Table yields nothing."""
+        table = pa.table({"id": pa.array([], type=pa.int64()),
+                          "name": pa.array([], type=pa.string()),
+                          "score": pa.array([], type=pa.float64()),
+                          "active": pa.array([], type=pa.bool_())})
+        converter = ArrowModelConverter(MixedModel)
+        results = list(converter.iter(table))
+        assert results == []

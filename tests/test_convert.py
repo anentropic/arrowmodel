@@ -1,4 +1,5 @@
-"""Conversion correctness tests for Phase 2 requirements.
+"""
+Conversion correctness tests for Phase 2 requirements.
 
 Covers all 15 Phase 2 requirement IDs:
 - SCHEMA-01, SCHEMA-02: Schema cross-referencing
@@ -12,13 +13,12 @@ Covers all 15 Phase 2 requirement IDs:
 
 from __future__ import annotations
 
-from typing import Optional
-
 import pyarrow as pa
 import pytest
-from pydantic import BaseModel
+from pydantic import AliasChoices, AliasGenerator, AliasPath, BaseModel, ConfigDict, Field
 
 from arrowdantic import ArrowModelConverter
+from arrowdantic import _build_field_map
 
 
 class IntModel(BaseModel):
@@ -57,8 +57,8 @@ class MixedModel(BaseModel):
 
 class NullableModel(BaseModel):
     id: int
-    name: Optional[str] = None
-    score: Optional[float] = None
+    name: str | None = None
+    score: float | None = None
 
 
 class TestSchemaMapping:
@@ -195,7 +195,8 @@ class TestModelConstruct:
     """Tests for FAST-01: Conversion uses model_construct (no Pydantic validation)."""
 
     def test_uses_model_construct_not_validate(self, mixed_batch: pa.RecordBatch) -> None:
-        """FAST-01: model_construct bypasses Pydantic validation.
+        """
+        FAST-01: model_construct bypasses Pydantic validation.
 
         Verify that conversion uses model_construct (not __init__/model_validate)
         by confirming instances are produced correctly and model_fields_set
@@ -236,24 +237,28 @@ class TestEndToEnd:
 
     def test_empty_batch(self) -> None:
         """Empty RecordBatch produces empty list."""
-        batch = pa.record_batch({
-            "id": pa.array([], type=pa.int64()),
-            "name": pa.array([], type=pa.string()),
-            "score": pa.array([], type=pa.float64()),
-            "active": pa.array([], type=pa.bool_()),
-        })
+        batch = pa.record_batch(
+            {
+                "id": pa.array([], type=pa.int64()),
+                "name": pa.array([], type=pa.string()),
+                "score": pa.array([], type=pa.float64()),
+                "active": pa.array([], type=pa.bool_()),
+            }
+        )
         converter = ArrowModelConverter(MixedModel)
         results = converter.convert(batch)
         assert results == []
 
     def test_single_row(self) -> None:
         """Single-row RecordBatch converts correctly."""
-        batch = pa.record_batch({
-            "id": pa.array([42], type=pa.int64()),
-            "name": pa.array(["single"]),
-            "score": pa.array([99.9], type=pa.float64()),
-            "active": pa.array([True]),
-        })
+        batch = pa.record_batch(
+            {
+                "id": pa.array([42], type=pa.int64()),
+                "name": pa.array(["single"]),
+                "score": pa.array([99.9], type=pa.float64()),
+                "active": pa.array([True]),
+            }
+        )
         converter = ArrowModelConverter(MixedModel)
         results = converter.convert(batch)
         assert len(results) == 1
@@ -265,12 +270,14 @@ class TestEndToEnd:
     def test_large_batch(self) -> None:
         """FAST-03: Large batch (10k rows) converts correctly."""
         n = 10_000
-        batch = pa.record_batch({
-            "id": pa.array(list(range(n)), type=pa.int64()),
-            "name": pa.array([f"item_{i}" for i in range(n)]),
-            "score": pa.array([float(i) for i in range(n)], type=pa.float64()),
-            "active": pa.array([i % 2 == 0 for i in range(n)]),
-        })
+        batch = pa.record_batch(
+            {
+                "id": pa.array(list(range(n)), type=pa.int64()),
+                "name": pa.array([f"item_{i}" for i in range(n)]),
+                "score": pa.array([float(i) for i in range(n)], type=pa.float64()),
+                "active": pa.array([i % 2 == 0 for i in range(n)]),
+            }
+        )
         converter = ArrowModelConverter(MixedModel)
         results = converter.convert(batch)
         assert len(results) == n
@@ -279,3 +286,160 @@ class TestEndToEnd:
         assert results[0].name == "item_0"
         assert results[-1].id == n - 1
         assert results[-1].name == f"item_{n - 1}"
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 test models for alias resolution and schema validation
+# ---------------------------------------------------------------------------
+
+
+class ValidationAliasModel(BaseModel):
+    user_id: int = Field(validation_alias="userId")
+    display_name: str = Field(validation_alias="displayName")
+
+
+class AliasModel(BaseModel):
+    user_id: int = Field(alias="userId")
+    display_name: str = Field(alias="displayName")
+
+
+class MixedAliasModel(BaseModel):
+    user_id: int = Field(validation_alias="userId")
+    display_name: str = Field(alias="displayName")
+    email: str  # no alias
+
+
+class PopulateByNameModel(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    user_id: int = Field(alias="userId")
+
+
+class ValidateByNameModel(BaseModel):
+    model_config = ConfigDict(validate_by_name=True)
+    user_id: int = Field(alias="userId")
+
+
+class AliasPathModel(BaseModel):
+    nested_val: str = Field(validation_alias=AliasPath("data", "value"))
+
+
+class AliasChoicesModel(BaseModel):
+    value: str = Field(validation_alias=AliasChoices("val", "value"))
+
+
+class AliasGeneratorModel(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=AliasGenerator(
+            validation_alias=lambda field_name: field_name.upper()
+        )
+    )
+    user_id: int
+
+
+class OptionalFieldModel(BaseModel):
+    id: int
+    name: str = "default_name"
+    score: float | None = None
+
+
+# ---------------------------------------------------------------------------
+# Task 1 RED: Tests for _build_field_map and _resolve_columns
+# ---------------------------------------------------------------------------
+
+
+class TestBuildFieldMap:
+    """Tests for _build_field_map: alias resolution logic."""
+
+    def test_validation_alias_str_returns_alias_to_field(self) -> None:
+        result = _build_field_map(ValidationAliasModel)
+        assert result == {"userId": "user_id", "displayName": "display_name"}
+
+    def test_alias_fallback_returns_alias_to_field(self) -> None:
+        result = _build_field_map(AliasModel)
+        assert result == {"userId": "user_id", "displayName": "display_name"}
+
+    def test_no_alias_returns_field_name_to_field_name(self) -> None:
+        result = _build_field_map(MixedModel)
+        assert result == {"id": "id", "name": "name", "score": "score", "active": "active"}
+
+    def test_alias_path_raises_not_implemented(self) -> None:
+        with pytest.raises(NotImplementedError, match="AliasPath"):
+            _build_field_map(AliasPathModel)
+
+    def test_alias_choices_raises_not_implemented(self) -> None:
+        with pytest.raises(NotImplementedError, match="AliasChoices"):
+            _build_field_map(AliasChoicesModel)
+
+    def test_alias_generator_raises_not_implemented(self) -> None:
+        with pytest.raises(NotImplementedError, match="AliasGenerator"):
+            _build_field_map(AliasGeneratorModel)
+
+    def test_populate_by_name_adds_both_entries(self) -> None:
+        result = _build_field_map(PopulateByNameModel)
+        assert "userId" in result
+        assert "user_id" in result
+        assert result["userId"] == "user_id"
+        assert result["user_id"] == "user_id"
+
+    def test_validate_by_name_adds_both_entries(self) -> None:
+        result = _build_field_map(ValidateByNameModel)
+        assert "userId" in result
+        assert "user_id" in result
+
+    def test_populate_by_name_does_not_overwrite_alias(self) -> None:
+        """Alias entry should win over field_name entry when they collide."""
+        result = _build_field_map(PopulateByNameModel)
+        # "userId" -> "user_id" is the alias mapping, it must remain
+        assert result["userId"] == "user_id"
+
+
+class TestResolveColumns:
+    """Tests for ArrowModelConverter._resolve_columns."""
+
+    def test_all_required_fields_present(self) -> None:
+        converter = ArrowModelConverter(MixedModel)
+        schema = pa.schema([
+            ("id", pa.int64()),
+            ("name", pa.utf8()),
+            ("score", pa.float64()),
+            ("active", pa.bool_()),
+        ])
+        col_indices, field_names = converter._resolve_columns(schema)
+        assert len(col_indices) == 4
+        assert len(field_names) == 4
+
+    def test_missing_required_field_raises_value_error(self) -> None:
+        converter = ArrowModelConverter(MixedModel)
+        schema = pa.schema([("id", pa.int64())])
+        with pytest.raises(ValueError, match="missing required columns"):
+            converter._resolve_columns(schema)
+
+    def test_missing_multiple_fields_lists_all(self) -> None:
+        converter = ArrowModelConverter(MixedModel)
+        schema = pa.schema([("wrong", pa.int64())])
+        with pytest.raises(ValueError, match="missing required columns") as exc_info:
+            converter._resolve_columns(schema)
+        error_msg = str(exc_info.value)
+        # All 4 fields should be listed
+        assert "id" in error_msg
+        assert "name" in error_msg
+
+    def test_optional_field_missing_skips(self) -> None:
+        converter = ArrowModelConverter(OptionalFieldModel)
+        schema = pa.schema([("id", pa.int64())])
+        col_indices, field_names = converter._resolve_columns(schema)
+        assert len(col_indices) == 1
+        assert field_names == ["id"]
+
+    def test_extra_arrow_columns_ignored(self) -> None:
+        converter = ArrowModelConverter(MixedModel)
+        schema = pa.schema([
+            ("id", pa.int64()),
+            ("name", pa.utf8()),
+            ("score", pa.float64()),
+            ("active", pa.bool_()),
+            ("extra_col", pa.int64()),
+        ])
+        col_indices, field_names = converter._resolve_columns(schema)
+        assert len(col_indices) == 4
+        assert "extra_col" not in field_names

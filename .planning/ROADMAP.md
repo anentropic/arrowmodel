@@ -111,7 +111,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 06-01-PLAN.md -- Scalar, temporal, and binary types: Float16, Decimal128/256/32/64, Date64, Time32/64, Binary, FixedSizeBinary, Utf8View, BinaryView
+- [x] 06-01-PLAN.md -- Scalar, temporal, and binary types: Float16, Decimal128/256/32/64, Date64, Time32/64, Binary, FixedSizeBinary, Utf8View, BinaryView
 - [ ] 06-02-PLAN.md -- Container and compound types: Interval (3 variants), FixedSizeList, Map, RunEndEncoded, Union (sparse + dense)
 
 ## Progress
@@ -126,4 +126,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 3. Core Conversion | 2/2 | Complete    | 2026-03-22 |
 | 4. Extended Types | 0/2 | In Progress | - |
 | 5. Validated Path and API Polish | 1/2 | In Progress|  |
-| 6. Support All PyArrow Types | 0/2 | Not Started | - |
+| 6. Support All PyArrow Types | 1/2 | In Progress|  |

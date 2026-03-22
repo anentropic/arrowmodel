@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed quick task 260322-k1b
-last_updated: "2026-03-22T14:33:42.464Z"
+last_updated: "2026-03-22T19:22:16.982Z"
+last_activity: 2026-03-22
 progress:
-  total_phases: 5
+  total_phases: 6
   completed_phases: 5
-  total_plans: 10
-  completed_plans: 10
+  total_plans: 12
+  completed_plans: 11
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Dict-free, single-step conversion from Arrow buffers to Pydantic model instances
-**Current focus:** Phase 05 — validated-path-and-api-polish
+**Current focus:** Phase 06 — support-all-pyarrow-types
 
 ## Current Position
 
-Phase: 05
-Plan: Not started
+Phase: 06 (support-all-pyarrow-types) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -56,6 +56,7 @@ Plan: Not started
 | Phase 04-extended-types P02 | 5min | 2 tasks | 5 files |
 | Phase 05-validated-path-and-api-polish P01 | 5min | 1 tasks | 4 files |
 | Phase 05 P02 | 5min | 2 tasks | 4 files |
+| Phase 06-support-all-pyarrow-types P01 | 10min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,10 @@ Recent decisions affecting current work:
 - [Phase 05]: Use typing.cast for Table/RecordBatch narrowing instead of isinstance (preserves duck-typing)
 - [Phase 05]: Scope pyarrow-stub pyright rules to tests/ via executionEnvironments (src/ fully strict)
 - [Phase 05]: Use Sequence in _core.pyi stubs for covariant field_specs parameter
+- [Phase 06-support-all-pyarrow-types]: Decimal types use value_as_string for precision-preserving Python Decimal conversion
+- [Phase 06-support-all-pyarrow-types]: Time types decompose raw int to h/m/s/us for PyTime; ns truncated to us
+- [Phase 06-support-all-pyarrow-types]: Binary validated path uses base64 encoding; Pydantic receives as UTF-8 bytes
+- [Phase 06-support-all-pyarrow-types]: View type fixtures use >12-byte values to avoid pyarrow inline StringView segfault
 
 ### Pending Todos
 
@@ -106,6 +111,10 @@ None yet.
 
 None yet.
 
+### Roadmap Evolution
+
+- Phase 6 added: Support all pyarrow types
+
 ### Quick Tasks Completed
 
 | # | Description | Date | Commit | Directory |
@@ -114,6 +123,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-22
-Last activity: 2026-03-22 - Completed quick task 260322-k1b: update benchmarks/bench_convert.py with nested benchmark
+Last session: 2026-03-22T19:22:16.979Z
+Last activity: 2026-03-22
 Resume file: None

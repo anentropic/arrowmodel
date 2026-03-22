@@ -60,9 +60,9 @@
 
 ### Complex Types
 
-- [ ] **CPLX-01**: List → `list` with recursive type handling for element type
-- [ ] **CPLX-02**: LargeList → `list` (same handling as List)
-- [ ] **CPLX-03**: Struct → nested Pydantic `BaseModel` via recursive `ArrowModelConverter`
+- [x] **CPLX-01**: List → `list` with recursive type handling for element type
+- [x] **CPLX-02**: LargeList → `list` (same handling as List)
+- [x] **CPLX-03**: Struct → nested Pydantic `BaseModel` via recursive `ArrowModelConverter`
 - [x] **CPLX-04**: Dictionary(key, value) → value type (decode indices to values, handle all key types)
 - [x] **CPLX-05**: Null type → `None` always
 
@@ -141,9 +141,9 @@
 | TEMP-03 | Phase 4 | Complete |
 | TEMP-04 | Phase 4 | Complete |
 | TEMP-05 | Phase 4 | Complete |
-| CPLX-01 | Phase 4 | Pending |
-| CPLX-02 | Phase 4 | Pending |
-| CPLX-03 | Phase 4 | Pending |
+| CPLX-01 | Phase 4 | Complete |
+| CPLX-02 | Phase 4 | Complete |
+| CPLX-03 | Phase 4 | Complete |
 | CPLX-04 | Phase 4 | Complete |
 | CPLX-05 | Phase 4 | Complete |
 | INPUT-01 | Phase 2 | Complete |

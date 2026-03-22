@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-03-22T11:14:18.780Z"
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-03-22T11:22:56.451Z"
 progress:
   total_phases: 5
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 8
-  completed_plans: 7
+  completed_plans: 8
 ---
 
 # Project State
@@ -53,6 +53,7 @@ Plan: 2 of 2
 | Phase 03-core-conversion P01 | 5min | 2 tasks | 2 files |
 | Phase 03-core-conversion P02 | 4min | 2 tasks | 3 files |
 | Phase 04-extended-types P01 | 5min | 2 tasks | 5 files |
+| Phase 04-extended-types P02 | 5min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,9 @@ Recent decisions affecting current work:
 - [Phase 04-extended-types]: Enable pyo3 chrono feature for automatic NaiveDate/NaiveDateTime/TimeDelta -> Python datetime conversion
 - [Phase 04-extended-types]: Pre-unpack dictionary columns in lib.rs before building extractors to solve lifetime ownership
 - [Phase 04-extended-types]: Cache ZoneInfo per batch in TimestampAware variant, not per row
+- [Phase 04-extended-types]: Replace col_indices+field_names with field_specs tuples for passing nested model classes to Rust
+- [Phase 04-extended-types]: Recursive struct introspection: Rust calls Python _get_nested_model for child struct model classes
+- [Phase 04-extended-types]: Temporary extractor per list row to solve ListArray.value() ownership lifetime
 
 ### Pending Todos
 
@@ -96,6 +100,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-22T11:14:18.778Z
-Stopped at: Completed 04-01-PLAN.md
+Last session: 2026-03-22T11:22:56.449Z
+Stopped at: Completed 04-02-PLAN.md
 Resume file: None

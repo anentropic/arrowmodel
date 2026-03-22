@@ -53,7 +53,7 @@ Plans:
 **Depends on**: Phase 2
 **Requirements**: SCHEMA-03, SCHEMA-04, ALIAS-01, ALIAS-02, ALIAS-03, FAST-02, INPUT-02, API-03
 **Success Criteria** (what must be TRUE):
-  1. `ArrowModelConverter` raises `ValueError` at construction when required Pydantic fields have no matching Arrow column, and silently ignores extra Arrow columns
+  1. `ArrowModelConverter.convert()` raises `ValueError` before row processing when required Pydantic fields have no matching Arrow column, and silently ignores extra Arrow columns
   2. Pydantic alias resolution works correctly: `validation_alias` takes priority over `alias` over `field_name`, and `populate_by_name` allows both alias and field name when enabled
   3. `from_arrow(MyModel, data)` convenience function works as a one-shot conversion for both RecordBatch and Table inputs
   4. Pre-interned Python field name strings are reused across all rows (no per-row string allocation)

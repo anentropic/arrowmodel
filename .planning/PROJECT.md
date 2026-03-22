@@ -14,19 +14,20 @@ Dict-free, single-step conversion from Arrow buffers to Pydantic model instances
 
 - ✓ Rust/PyO3 extension module built with maturin, importable as `arrowdantic._core` — Phase 1
 - ✓ Arrow C Data Interface for zero-copy buffer handoff (via `pyo3-arrow`) — Phase 1
+- ✓ `ArrowModelConverter` class that cross-references Arrow schema against Pydantic model fields at construction time — Phase 2
+- ✓ Schema cross-referencing compiled once at converter init, not per batch — Phase 2
+- ✓ Fast path (default): `model_construct` with no Pydantic validation, dict-free row construction — Phase 2
+- ✓ Null handling via Arrow validity bitmap — check before extract, emit `None` for null values — Phase 2
+- ✓ Primitive type coverage: Int8–64, UInt8–64, Float32/64, Boolean, Utf8/LargeUtf8 — Phase 2
+- ✓ Benchmark: ~1.7x faster than to_pylist() + model_construct at 100k rows — Phase 2
 
 ### Active
 
-
-- [ ] `ArrowModelConverter` class that cross-references Arrow schema against Pydantic model fields at construction time
-- [ ] Schema cross-referencing compiled once at converter init, not per batch
 - [ ] Full support for Pydantic v2 field aliases and `validation_alias` (resolution priority: validation_alias > alias > field_name)
 - [ ] `populate_by_name` support — accept both alias and field name when enabled
-- [ ] Fast path (default): `model_construct` with no Pydantic validation, dict-free row construction
 - [ ] Validated path (`validate=True`): serde_json row serialisation → `validate_json` for full Pydantic validation
 - [ ] Accept both pyarrow `RecordBatch` and `Table` as input (iterate batches internally for Table)
-- [ ] Full Arrow type coverage: Int8–64, UInt8–64, Float32/64, Boolean, Utf8/LargeUtf8, Date32, Timestamp (naive + aware), Duration, List/LargeList, Struct (recursive nested models), Dictionary, Null
-- [ ] Null handling via Arrow validity bitmap — check before extract, emit `None` for null values
+- [ ] Extended type coverage: Date32, Timestamp (naive + aware), Duration, List/LargeList, Struct (recursive nested models), Dictionary, Null
 - [ ] `ValueError` at converter construction for: missing required fields, unresolvable types, ambiguous matches
 - [ ] Extra Arrow columns silently ignored (no error for unmapped columns)
 - [ ] Convenience `from_arrow(Model, batch)` one-shot function
@@ -88,4 +89,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-21 after Phase 1 completion*
+*Last updated: 2026-03-22 after Phase 2 completion*

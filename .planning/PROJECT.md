@@ -25,11 +25,16 @@ Dict-free, single-step conversion from Arrow buffers to Pydantic model instances
 - ✓ Accept both pyarrow `RecordBatch` and `Table` (Rust-side multi-batch iteration via `convert_table`) — Phase 3
 - ✓ `from_arrow(Model, data)` convenience one-shot function — Phase 3
 - ✓ Pre-interned Python field name strings reused across all rows and batches — Phase 3
+- ✓ Temporal types: Date32 → `datetime.date`, Timestamp → naive/aware `datetime.datetime` (IANA tz via `zoneinfo.ZoneInfo`), Duration → `datetime.timedelta` — Phase 4
+- ✓ Nanosecond timestamps truncated to microsecond precision (Python's max) — Phase 4
+- ✓ List/LargeList → Python `list` with recursive element type handling — Phase 4
+- ✓ Struct → nested Pydantic `BaseModel` via recursive `model_construct` in Rust — Phase 4
+- ✓ Dictionary arrays transparently decoded to value type via `arrow_cast::cast` — Phase 4
+- ✓ Null type → `None` for every row — Phase 4
 
 ### Active
 
 - [ ] Validated path (`validate=True`): serde_json row serialisation → `validate_json` for full Pydantic validation
-- [ ] Extended type coverage: Date32, Timestamp (naive + aware), Duration, List/LargeList, Struct (recursive nested models), Dictionary, Null
 - [ ] Type stubs (`_core.pyi`) for the Rust extension
 
 ### Out of Scope
@@ -89,4 +94,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-22 after Phase 3 completion*
+*Last updated: 2026-03-22 after Phase 4 completion*

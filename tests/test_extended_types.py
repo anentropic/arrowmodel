@@ -413,6 +413,66 @@ class TestInterval:
 
 
 # ---------------------------------------------------------------------------
+# IntervalYearMonth tests (DEBT-01)
+# ---------------------------------------------------------------------------
+
+
+class TestIntervalYearMonth:
+    def test_interval_year_month_value(
+        self, interval_ym_batch: pa.RecordBatch
+    ) -> None:
+        converter = ArrowModelConverter(IntervalModel)
+        results = converter.convert(interval_ym_batch)
+        assert len(results) == 3
+        # 14 months, 0 days, 0 nanos
+        assert results[0].interval == (14, 0, 0)
+
+    def test_interval_year_month_null(
+        self, interval_ym_batch: pa.RecordBatch
+    ) -> None:
+        converter = ArrowModelConverter(IntervalModel)
+        results = converter.convert(interval_ym_batch)
+        assert results[1].interval is None
+
+    def test_interval_year_month_zero(
+        self, interval_ym_batch: pa.RecordBatch
+    ) -> None:
+        converter = ArrowModelConverter(IntervalModel)
+        results = converter.convert(interval_ym_batch)
+        assert results[2].interval == (0, 0, 0)
+
+
+# ---------------------------------------------------------------------------
+# IntervalDayTime tests (DEBT-01)
+# ---------------------------------------------------------------------------
+
+
+class TestIntervalDayTime:
+    def test_interval_day_time_value(
+        self, interval_dt_batch: pa.RecordBatch
+    ) -> None:
+        converter = ArrowModelConverter(IntervalModel)
+        results = converter.convert(interval_dt_batch)
+        assert len(results) == 3
+        # 0 months, 5 days, 3600000 ms * 1_000_000 = 3_600_000_000_000 nanos
+        assert results[0].interval == (0, 5, 3_600_000_000_000)
+
+    def test_interval_day_time_null(
+        self, interval_dt_batch: pa.RecordBatch
+    ) -> None:
+        converter = ArrowModelConverter(IntervalModel)
+        results = converter.convert(interval_dt_batch)
+        assert results[1].interval is None
+
+    def test_interval_day_time_zero(
+        self, interval_dt_batch: pa.RecordBatch
+    ) -> None:
+        converter = ArrowModelConverter(IntervalModel)
+        results = converter.convert(interval_dt_batch)
+        assert results[2].interval == (0, 0, 0)
+
+
+# ---------------------------------------------------------------------------
 # FixedSizeList tests
 # ---------------------------------------------------------------------------
 

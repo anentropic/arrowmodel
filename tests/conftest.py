@@ -2,10 +2,75 @@
 
 from __future__ import annotations
 
+import ctypes
 import datetime
 
 import pyarrow as pa
 import pytest
+
+
+# ---------------------------------------------------------------------------
+# Arrow C Data Interface helpers for interval subtype construction
+# ---------------------------------------------------------------------------
+# pyarrow has no public API for constructing IntervalYearMonth or
+# IntervalDayTime arrays.  The workaround: build an int32/int64 batch,
+# export via the C Data Interface, flip the column format string to the
+# correct Arrow interval type code, then re-import.
+# ---------------------------------------------------------------------------
+
+
+class _CSchema(ctypes.Structure):
+    _fields_ = [
+        ("format", ctypes.c_char_p),
+        ("name", ctypes.c_char_p),
+        ("metadata", ctypes.c_char_p),
+        ("flags", ctypes.c_int64),
+        ("n_children", ctypes.c_int64),
+        ("children", ctypes.c_void_p),
+        ("dictionary", ctypes.c_void_p),
+        ("release", ctypes.c_void_p),
+        ("private_data", ctypes.c_void_p),
+    ]
+
+
+class _CArray(ctypes.Structure):
+    _fields_ = [
+        ("length", ctypes.c_int64),
+        ("null_count", ctypes.c_int64),
+        ("offset", ctypes.c_int64),
+        ("n_buffers", ctypes.c_int64),
+        ("n_children", ctypes.c_int64),
+        ("buffers", ctypes.c_void_p),
+        ("children", ctypes.c_void_p),
+        ("dictionary", ctypes.c_void_p),
+        ("release", ctypes.c_void_p),
+        ("private_data", ctypes.c_void_p),
+    ]
+
+
+def _reinterpret_column(
+    batch: pa.RecordBatch, col_name: str, new_format: bytes
+) -> pa.RecordBatch:
+    """Re-import *batch* via C Data Interface with one column's type changed.
+
+    This is the only reliable way to create IntervalYearMonth / IntervalDayTime
+    RecordBatches from pyarrow, which lacks native constructors for these types.
+    """
+    c_arr = _CArray()
+    c_sch = _CSchema()
+    batch._export_to_c(ctypes.addressof(c_arr), ctypes.addressof(c_sch))
+    col_name_bytes = col_name.encode()
+    for i in range(c_sch.n_children):
+        child_ptr = ctypes.cast(
+            c_sch.children, ctypes.POINTER(ctypes.c_void_p)
+        )[i]
+        child = ctypes.cast(child_ptr, ctypes.POINTER(_CSchema)).contents
+        if child.name == col_name_bytes:
+            child.format = new_format
+            break
+    return pa.RecordBatch._import_from_c(
+        ctypes.addressof(c_arr), ctypes.addressof(c_sch)
+    )
 
 
 @pytest.fixture
@@ -465,6 +530,42 @@ def interval_mdn_batch() -> pa.RecordBatch:
         type=pa.month_day_nano_interval(),
     )
     return pa.record_batch({"interval": arr})
+
+
+@pytest.fixture
+def interval_ym_batch() -> pa.RecordBatch:
+    """IntervalYearMonth with varying month values.
+
+    pyarrow has no public constructor for IntervalYearMonth arrays.
+    We build an int32 batch (the physical storage type for YearMonth)
+    and re-import with the correct Arrow C format string ``tiM``.
+    """
+    src = pa.record_batch(
+        {"interval": pa.array([14, None, 0], type=pa.int32())}
+    )
+    return _reinterpret_column(src, "interval", b"tiM")
+
+
+@pytest.fixture
+def interval_dt_batch() -> pa.RecordBatch:
+    """IntervalDayTime with varying day/ms values.
+
+    IntervalDayTime is physically stored as int64 where each value
+    encodes ``(days, milliseconds)`` as a struct ``{i32, i32}``.
+    On little-endian, the int64 representation is
+    ``days | (ms << 32)`` (days in low 32 bits, ms in high 32 bits).
+
+    Values:
+      Row 0: 5 days, 3600000 ms (1 hour)
+      Row 1: null
+      Row 2: 0 days, 0 ms
+    """
+    val0 = 5 | (3600000 << 32)  # 5 days, 3600000 ms
+    val2 = 0
+    src = pa.record_batch(
+        {"interval": pa.array([val0, None, val2], type=pa.int64())}
+    )
+    return _reinterpret_column(src, "interval", b"tiD")
 
 
 @pytest.fixture

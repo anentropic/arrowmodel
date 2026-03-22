@@ -118,6 +118,7 @@ Recent decisions affecting current work:
 ### Pending Todos
 
 1. **Rename package — arrowdantic name taken** (general) — choose new name, rename across all files
+2. **Explore schema-model bridge ecosystem** (general) — research Patito/Poldantic/Pandera/pydantic-to-pyarrow, design Arrow↔Pydantic schema bridge
 
 ### Blockers/Concerns
 

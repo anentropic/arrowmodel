@@ -90,8 +90,8 @@
 
 - [ ] **DEBT-01**: Test coverage for IntervalYearMonth and IntervalDayTime subtypes (implementation exists, tests missing)
 - [ ] **DEBT-02**: Validated path (`validate=True`) tests for Decimal256, Time64, LargeBinary, FixedSizeBinary, BinaryView, REE, Union
-- [ ] **DEBT-03**: Test for `iter_arrow(validate=True)` convenience wrapper
-- [ ] **DEBT-04**: Add `validate` parameter to `from_arrow()` for API symmetry with `iter_arrow()`
+- [x] **DEBT-03**: Test for `iter_arrow(validate=True)` convenience wrapper
+- [x] **DEBT-04**: Add `validate` parameter to `from_arrow()` for API symmetry with `iter_arrow()`
 
 ### Input Types
 
@@ -200,8 +200,8 @@
 | EXT-UNION | Phase 6 | Complete |
 | DEBT-01 | Phase 7 | Pending |
 | DEBT-02 | Phase 7 | Pending |
-| DEBT-03 | Phase 7 | Pending |
-| DEBT-04 | Phase 7 | Pending |
+| DEBT-03 | Phase 7 | Complete |
+| DEBT-04 | Phase 7 | Complete |
 
 **Coverage:**
 - v1 requirements: 63 total

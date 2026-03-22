@@ -126,7 +126,7 @@ Plans:
 
 Plans:
 - [ ] 07-01-PLAN.md -- Interval subtype test coverage and validated path tests for 7 extended types
-- [ ] 07-02-PLAN.md -- iter_arrow validated test and from_arrow validate parameter
+- [x] 07-02-PLAN.md -- iter_arrow validated test and from_arrow validate parameter
 
 ## Progress
 

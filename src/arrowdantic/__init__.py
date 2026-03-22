@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import typing
 from collections.abc import Iterator
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from pydantic import AliasChoices, AliasPath, BaseModel
 
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 __all__ = ["ArrowModelConverter", "from_arrow", "iter_arrow", "_build_field_map", "_get_nested_model", "_core"]
 
 
-def _get_nested_model(annotation: type | None) -> type[BaseModel] | None:
+def _get_nested_model(annotation: Any) -> type[BaseModel] | None:
     """Extract nested BaseModel class from a Pydantic field annotation.
 
     Handles:
@@ -184,16 +184,18 @@ class ArrowModelConverter:
 
         if hasattr(data, "to_batches"):
             # Table input: delegate to Rust convert_table (fast or validated)
+            table = cast("pa.Table", data)
             if self._validate:
-                return _core.convert_table_validated(data, self._model_class, field_specs)
-            return _core.convert_table(data, self._model_class, field_specs)
+                return _core.convert_table_validated(table, self._model_class, field_specs)
+            return _core.convert_table(table, self._model_class, field_specs)
         else:
             # RecordBatch input: delegate to Rust convert_record_batch (fast or validated)
+            batch = cast("pa.RecordBatch", data)
             if self._validate:
                 return _core.convert_record_batch_validated(
-                    data, self._model_class, field_specs
+                    batch, self._model_class, field_specs
                 )
-            return _core.convert_record_batch(data, self._model_class, field_specs)
+            return _core.convert_record_batch(batch, self._model_class, field_specs)
 
     def iter(self, data: pa.RecordBatch | pa.Table) -> Iterator[BaseModel]:
         """Lazily yield model instances one batch at a time.
@@ -207,9 +209,9 @@ class ArrowModelConverter:
         field_specs = self._resolve_columns(data.schema)
 
         if hasattr(data, "to_batches"):
-            batches = data.to_batches()
+            batches: list[pa.RecordBatch] = cast("pa.Table", data).to_batches()
         else:
-            batches = [data]
+            batches = [cast("pa.RecordBatch", data)]
 
         for batch in batches:
             if self._validate:

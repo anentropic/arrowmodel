@@ -21,6 +21,7 @@ dev = [
     "ipython>=9.10.0",
     "pdbpp>=0.12.0.post1",
     "pyarrow>=23.0.1",
+    "pyarrow-stubs>=20.0.0.20251215",
     "pytest>=8.0.0",
     "pytest-benchmark>=5.2.3",
     "pytest-cov>=6.0.0",
@@ -40,6 +41,13 @@ pythonVersion = "3.14"
 typeCheckingMode = "strict"
 include = ["src", "tests"]
 reportPrivateUsage = false
+
+[[tool.pyright.executionEnvironments]]
+root = "tests"
+# Relax rules triggered by incomplete pyarrow-stubs (third-party stub issue)
+reportUnknownMemberType = false
+reportUnknownArgumentType = false
+reportAttributeAccessIssue = false
 
 [tool.ruff]
 target-version = "py311"

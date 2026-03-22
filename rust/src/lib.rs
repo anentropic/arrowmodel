@@ -177,6 +177,7 @@ mod _core {
                     let dt = schema.field(orig_idx).data_type();
                     let effective_dt = match dt {
                         DataType::Dictionary(_, value_type) => value_type.as_ref(),
+                        DataType::RunEndEncoded(_, value_field) => value_field.data_type(),
                         other => other,
                     };
                     extract::prepare_extractor(
@@ -313,6 +314,7 @@ mod _core {
                     let dt = schema.field(orig_idx).data_type();
                     let effective_dt = match dt {
                         DataType::Dictionary(_, value_type) => value_type.as_ref(),
+                        DataType::RunEndEncoded(_, value_field) => value_field.data_type(),
                         other => other,
                     };
                     extract::prepare_extractor(

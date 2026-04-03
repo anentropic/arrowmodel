@@ -23,7 +23,7 @@ import pyarrow as pa
 import pytest
 from pydantic import AliasChoices, AliasGenerator, AliasPath, BaseModel, ConfigDict, Field
 
-from arrowmodel import ArrowModelConverter, _build_field_map, from_arrow
+from arrowmodel import ArrowModelConverter, _build_field_map, model_convert
 
 
 class IntModel(BaseModel):
@@ -577,7 +577,7 @@ class TestSchemaValidation:
 
 
 # ---------------------------------------------------------------------------
-# Phase 3 Plan 2: Table input, from_arrow, and string interning tests (TDD RED)
+# Phase 3 Plan 2: Table input, model_convert, and string interning tests (TDD RED)
 # ---------------------------------------------------------------------------
 
 
@@ -644,21 +644,21 @@ class TestTableInput:
         assert results[1].display_name == "b"
 
 
-class TestFromArrow:
-    """Tests for API-03: from_arrow convenience function."""
+class TestModelConvert:
+    """Tests for API-03: model_convert convenience function."""
 
-    def test_from_arrow_record_batch(self) -> None:
-        """API-03: from_arrow works with RecordBatch."""
+    def test_model_convert_record_batch(self) -> None:
+        """API-03: model_convert works with RecordBatch."""
         batch = pa.record_batch(
             {"id": [1, 2], "name": ["a", "b"], "score": [1.0, 2.0], "active": [True, False]}
         )
-        results = from_arrow(MixedModel, batch)
+        results = model_convert(MixedModel, batch)
         assert len(results) == 2
         assert results[0].id == 1
         assert isinstance(results[0], MixedModel)
 
-    def test_from_arrow_table(self) -> None:
-        """API-03: from_arrow works with Table."""
+    def test_model_convert_table(self) -> None:
+        """API-03: model_convert works with Table."""
         table = pa.table(
             {
                 "id": [1, 2, 3],
@@ -667,28 +667,24 @@ class TestFromArrow:
                 "active": [True, False, True],
             }
         )
-        results = from_arrow(MixedModel, table)
+        results = model_convert(MixedModel, table)
         assert len(results) == 3
         assert results[2].name == "c"
         assert isinstance(results[0], MixedModel)
 
-    def test_from_arrow_validated_record_batch(self) -> None:
-        """DEBT-04: from_arrow(validate=True) works with RecordBatch."""
-        from arrowmodel import from_arrow
-
+    def test_model_convert_validated_record_batch(self) -> None:
+        """DEBT-04: model_convert(validate=True) works with RecordBatch."""
         batch = pa.record_batch(
             {"id": [1, 2], "name": ["a", "b"], "score": [1.0, 2.0], "active": [True, False]}
         )
-        results = from_arrow(MixedModel, batch, validate=True)
+        results = model_convert(MixedModel, batch, validate=True)
         assert len(results) == 2
         assert results[0].id == 1
         assert results[1].name == "b"
         assert isinstance(results[0], MixedModel)
 
-    def test_from_arrow_validated_table(self) -> None:
-        """DEBT-04: from_arrow(validate=True) works with Table."""
-        from arrowmodel import from_arrow
-
+    def test_model_convert_validated_table(self) -> None:
+        """DEBT-04: model_convert(validate=True) works with Table."""
         table = pa.table(
             {
                 "id": [1, 2, 3],
@@ -697,7 +693,7 @@ class TestFromArrow:
                 "active": [True, False, True],
             }
         )
-        results = from_arrow(MixedModel, table, validate=True)
+        results = model_convert(MixedModel, table, validate=True)
         assert len(results) == 3
         assert results[0].id == 1
         assert results[2].name == "c"
@@ -1434,26 +1430,26 @@ class TestIteratorAPI:
         assert len(results) == 2
         assert results[0].id == 1
 
-    def test_iter_arrow_convenience(self) -> None:
-        """API-04: iter_arrow() convenience function works."""
-        from arrowmodel import iter_arrow
+    def test_model_iter_convenience(self) -> None:
+        """API-04: model_iter() convenience function works."""
+        from arrowmodel import model_iter
 
         batch = pa.record_batch(
             {"id": [1, 2], "name": ["a", "b"], "score": [1.0, 2.0], "active": [True, False]}
         )
-        results = list(iter_arrow(MixedModel, batch))
+        results = list(model_iter(MixedModel, batch))
         assert len(results) == 2
         assert results[0].id == 1
         assert isinstance(results[0], MixedModel)
 
-    def test_iter_arrow_validated(self) -> None:
-        """DEBT-03: iter_arrow(validate=True) convenience wrapper works."""
-        from arrowmodel import iter_arrow
+    def test_model_iter_validated(self) -> None:
+        """DEBT-03: model_iter(validate=True) convenience wrapper works."""
+        from arrowmodel import model_iter
 
         batch = pa.record_batch(
             {"id": [1, 2], "name": ["a", "b"], "score": [1.0, 2.0], "active": [True, False]}
         )
-        results = list(iter_arrow(MixedModel, batch, validate=True))
+        results = list(model_iter(MixedModel, batch, validate=True))
         assert len(results) == 2
         assert results[0].id == 1
         assert results[1].name == "b"

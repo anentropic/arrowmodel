@@ -16,8 +16,8 @@ if TYPE_CHECKING:
 
 __all__ = [
     "ArrowModelConverter",
-    "from_arrow",
-    "iter_arrow",
+    "model_convert",
+    "model_iter",
     "_build_field_map",
     "_get_nested_model",
     "_core",
@@ -204,11 +204,12 @@ class ArrowModelConverter:
 
     def iter(self, data: pa.RecordBatch | pa.Table) -> Iterator[BaseModel]:
         """
-        Lazily yield model instances one batch at a time.
+        Lazily yield individual model instances from Arrow data.
 
-        For Tables with multiple batches, only one batch's worth of model
-        instances is materialized in memory at a time. For RecordBatch input,
-        behavior is equivalent to iterating over convert() results.
+        For Tables with multiple batches, only one batch's worth of instances
+        is materialized in memory at a time, but each instance is yielded
+        individually. For RecordBatch input, behavior is equivalent to
+        iterating over convert() results.
 
         Per API-04: Iterator/generator API for lazy model yielding.
         """
@@ -229,7 +230,7 @@ class ArrowModelConverter:
             yield from results
 
 
-def from_arrow(
+def model_convert(
     model_class: type[BaseModel],
     data: pa.RecordBatch | pa.Table,
     *,
@@ -243,20 +244,20 @@ def from_arrow(
     prefer creating an ArrowModelConverter instance and reusing it.
 
     Per API-03: Convenience one-shot function.
-    Per DEBT-04: Accepts validate parameter for API symmetry with iter_arrow.
+    Per DEBT-04: Accepts validate parameter for API symmetry with model_iter.
     """
     converter = ArrowModelConverter(model_class, validate=validate)
     return converter.convert(data)
 
 
-def iter_arrow(
+def model_iter(
     model_class: type[BaseModel],
     data: pa.RecordBatch | pa.Table,
     *,
     validate: bool = False,
 ) -> Iterator[BaseModel]:
     """
-    One-shot lazy iteration from Arrow data to Pydantic model instances.
+    Lazily yield individual model instances from Arrow data.
 
     Convenience function that creates a temporary ArrowModelConverter
     and calls iter(). For repeated conversions of the same model,

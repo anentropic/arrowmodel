@@ -151,8 +151,8 @@ pub fn prepare_extractor<'a>(
 
             // Introspect the nested model class to find child struct model classes.
             // Import the _get_nested_model helper from Python.
-            let arrowdantic = py.import("arrowdantic")?;
-            let get_nested_model_fn = arrowdantic.getattr("_get_nested_model")?;
+            let arrowmodel = py.import("arrowmodel")?;
+            let get_nested_model_fn = arrowmodel.getattr("_get_nested_model")?;
             let model_fields = model_cls.bind(py).getattr("model_fields")?;
 
             for (i, field) in fields.iter().enumerate() {

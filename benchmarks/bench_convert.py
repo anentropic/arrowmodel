@@ -9,8 +9,8 @@ Iteration counts are normalised so that each benchmark processes
 comparable wall-clock times across sizes.
 
 Usage:
-    uv run python benchmarks/bench_convert.py 50 100 250 500 1000
-    uv run python benchmarks/bench_convert.py  # defaults: 1000 10000 100000
+    uv run python benchmarks/bench_convert.py  # defaults: 50, 100, 250, 500, 1000
+    uv run python benchmarks/bench_convert.py 1000 10000 100000
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from pydantic import BaseModel
 
 from arrowmodel import ArrowModelConverter
 
-DEFAULT_SIZES = [1000, 10_000, 100_000]
+DEFAULT_SIZES = [50, 100, 250, 500, 1000]
 TARGET_INSTANCES = 500_000
 NESTING_DEPTH = 10
 TABLE_BATCHES = 10

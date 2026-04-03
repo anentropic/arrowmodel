@@ -2,7 +2,7 @@
 
 Dict-free, single-step conversion from Apache Arrow buffers to Pydantic v2 model instances.
 
-arrowmodel uses a Rust core (via PyO3) to convert `RecordBatch` and `Table` objects directly into Pydantic models, skipping the intermediate Python dict representation that `to_pylist()` + Pydantic construction requires.
+`arrowmodel` uses a Rust core (via PyO3) to convert `RecordBatch` and `Table` objects directly into Pydantic models, skipping the intermediate Python dict representation that `to_pylist()` + Pydantic construction requires.
 
 ## Installation
 
@@ -16,7 +16,7 @@ pip install arrowmodel
 import pyarrow as pa
 from pydantic import BaseModel
 
-from arrowmodel import from_arrow
+from arrowmodel import model_convert
 
 
 class User(BaseModel):
@@ -33,9 +33,18 @@ batch = pa.record_batch(
     }
 )
 
-users = from_arrow(User, batch)
+users = model_convert(User, batch)
 # [User(id=1, name='Alice', score=9.5), ...]
 ```
+
+## Benchmarks
+
+We have some simple benchmarks in `benchmarks/bench_convert.py` which compare Arrowmodel `convert` (one-step) vs Arrow `to_pylist` + Pydantic `model_construct`.
+
+We get roughly 2x speed-up, reducing with the more layers of nested model-in-model you have (down to approx 1x parity at 10 levels of nesting).
+
+See results here [`results-v1.0-2026-04-03.txt`](benchmarks/results-v1.0-2026-04-03.txt)
+
 
 ## Usage
 
@@ -58,25 +67,27 @@ users = converter.convert(table)
 
 ### Lazy iteration
 
-For large datasets, iterate one batch at a time to limit memory usage:
+For large datasets, iterate over individual instances without materializing the full list:
 
 ```python
-from arrowmodel import iter_arrow
+from arrowmodel import model_iter
 
-for user in iter_arrow(User, table):
-    process(user)
+for user in model_iter(User, table):
+    print(user)
 
 # Or with the converter object:
 for user in converter.iter(table):
-    process(user)
+    print(user)
 ```
+
+(Results are materialised a `RecordBatch` at a time - due to columnar nature of Arrow data this is the most efficient way to do it)
 
 ### Validated mode
 
 By default arrowmodel uses `model_construct` (no validation, maximum speed). Pass `validate=True` to run full Pydantic validation on each row:
 
 ```python
-users = from_arrow(User, batch, validate=True)
+users = model_convert(User, batch, validate=True)
 
 # Or:
 converter = ArrowModelConverter(User, validate=True)
@@ -102,7 +113,7 @@ batch = pa.record_batch(
         "displayName": ["Alice", "Bob"],
     }
 )
-records = from_arrow(Record, batch)
+records = model_convert(Record, batch)
 # [Record(user_id=1, display_name='Alice'), ...]
 ```
 
@@ -124,6 +135,7 @@ arrowmodel accepts any Arrow-PyCapsule-compatible input (pyarrow, polars, nanoar
 
 ```bash
 # Install dependencies
+uv tool install prek
 uv sync --dev
 
 # Install git hooks

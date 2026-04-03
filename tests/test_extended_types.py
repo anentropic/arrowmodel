@@ -1,4 +1,5 @@
-"""Tests for Phase 6: Extended Arrow type support.
+"""
+Tests for Phase 6: Extended Arrow type support.
 
 Covers requirement IDs:
 - EXT-FLOAT16: Float16 -> float
@@ -24,8 +25,7 @@ import pyarrow as pa
 import pytest
 from pydantic import BaseModel
 
-from arrowdantic import ArrowModelConverter
-
+from arrowmodel import ArrowModelConverter
 
 # ---------------------------------------------------------------------------
 # Pydantic models for extended types
@@ -128,9 +128,7 @@ class TestDecimal256:
         results = converter.convert(decimal256_batch)
         assert len(results) == 2
         assert isinstance(results[0].big_amount, decimal.Decimal)
-        assert results[0].big_amount == decimal.Decimal(
-            "123456789012345678901234567890.12345678"
-        )
+        assert results[0].big_amount == decimal.Decimal("123456789012345678901234567890.12345678")
 
     def test_decimal256_null(self, decimal256_batch: pa.RecordBatch) -> None:
         converter = ArrowModelConverter(Decimal256Model)
@@ -256,9 +254,7 @@ class TestTime64:
         assert results[0].t == datetime.time(10, 30, 0, 500123)
         assert results[2].t == datetime.time(0, 0, 0)
 
-    def test_time64_nanosecond_truncation(
-        self, time64_ns_batch: pa.RecordBatch
-    ) -> None:
+    def test_time64_nanosecond_truncation(self, time64_ns_batch: pa.RecordBatch) -> None:
         """Time64(ns) should truncate nanoseconds to microseconds."""
         converter = ArrowModelConverter(TimeModel)
         results = converter.convert(time64_ns_batch)
@@ -305,9 +301,7 @@ class TestBinary:
 
 
 class TestFixedSizeBinary:
-    def test_fixed_size_binary_value(
-        self, fixed_size_binary_batch: pa.RecordBatch
-    ) -> None:
+    def test_fixed_size_binary_value(self, fixed_size_binary_batch: pa.RecordBatch) -> None:
         converter = ArrowModelConverter(FixedBinaryModel)
         results = converter.convert(fixed_size_binary_batch)
         assert isinstance(results[0].hash, bytes)
@@ -315,9 +309,7 @@ class TestFixedSizeBinary:
         assert len(results[0].hash) == 4
         assert results[2].hash == b"\xaa\xbb\xcc\xdd"
 
-    def test_fixed_size_binary_null(
-        self, fixed_size_binary_batch: pa.RecordBatch
-    ) -> None:
+    def test_fixed_size_binary_null(self, fixed_size_binary_batch: pa.RecordBatch) -> None:
         converter = ArrowModelConverter(FixedBinaryModel)
         results = converter.convert(fixed_size_binary_batch)
         assert results[1].hash is None
@@ -393,9 +385,7 @@ class UnionIntStrModel(BaseModel):
 
 
 class TestInterval:
-    def test_interval_month_day_nano_value(
-        self, interval_mdn_batch: pa.RecordBatch
-    ) -> None:
+    def test_interval_month_day_nano_value(self, interval_mdn_batch: pa.RecordBatch) -> None:
         converter = ArrowModelConverter(IntervalModel)
         results = converter.convert(interval_mdn_batch)
         assert len(results) == 3
@@ -418,25 +408,19 @@ class TestInterval:
 
 
 class TestIntervalYearMonth:
-    def test_interval_year_month_value(
-        self, interval_ym_batch: pa.RecordBatch
-    ) -> None:
+    def test_interval_year_month_value(self, interval_ym_batch: pa.RecordBatch) -> None:
         converter = ArrowModelConverter(IntervalModel)
         results = converter.convert(interval_ym_batch)
         assert len(results) == 3
         # 14 months, 0 days, 0 nanos
         assert results[0].interval == (14, 0, 0)
 
-    def test_interval_year_month_null(
-        self, interval_ym_batch: pa.RecordBatch
-    ) -> None:
+    def test_interval_year_month_null(self, interval_ym_batch: pa.RecordBatch) -> None:
         converter = ArrowModelConverter(IntervalModel)
         results = converter.convert(interval_ym_batch)
         assert results[1].interval is None
 
-    def test_interval_year_month_zero(
-        self, interval_ym_batch: pa.RecordBatch
-    ) -> None:
+    def test_interval_year_month_zero(self, interval_ym_batch: pa.RecordBatch) -> None:
         converter = ArrowModelConverter(IntervalModel)
         results = converter.convert(interval_ym_batch)
         assert results[2].interval == (0, 0, 0)
@@ -448,25 +432,19 @@ class TestIntervalYearMonth:
 
 
 class TestIntervalDayTime:
-    def test_interval_day_time_value(
-        self, interval_dt_batch: pa.RecordBatch
-    ) -> None:
+    def test_interval_day_time_value(self, interval_dt_batch: pa.RecordBatch) -> None:
         converter = ArrowModelConverter(IntervalModel)
         results = converter.convert(interval_dt_batch)
         assert len(results) == 3
         # 0 months, 5 days, 3600000 ms * 1_000_000 = 3_600_000_000_000 nanos
         assert results[0].interval == (0, 5, 3_600_000_000_000)
 
-    def test_interval_day_time_null(
-        self, interval_dt_batch: pa.RecordBatch
-    ) -> None:
+    def test_interval_day_time_null(self, interval_dt_batch: pa.RecordBatch) -> None:
         converter = ArrowModelConverter(IntervalModel)
         results = converter.convert(interval_dt_batch)
         assert results[1].interval is None
 
-    def test_interval_day_time_zero(
-        self, interval_dt_batch: pa.RecordBatch
-    ) -> None:
+    def test_interval_day_time_zero(self, interval_dt_batch: pa.RecordBatch) -> None:
         converter = ArrowModelConverter(IntervalModel)
         results = converter.convert(interval_dt_batch)
         assert results[2].interval == (0, 0, 0)
@@ -478,24 +456,18 @@ class TestIntervalDayTime:
 
 
 class TestFixedSizeList:
-    def test_fixed_size_list_value(
-        self, fixed_size_list_batch: pa.RecordBatch
-    ) -> None:
+    def test_fixed_size_list_value(self, fixed_size_list_batch: pa.RecordBatch) -> None:
         converter = ArrowModelConverter(FixedSizeListModel)
         results = converter.convert(fixed_size_list_batch)
         assert len(results) == 3
         assert results[0].values == [1, 2, 3]
 
-    def test_fixed_size_list_null(
-        self, fixed_size_list_batch: pa.RecordBatch
-    ) -> None:
+    def test_fixed_size_list_null(self, fixed_size_list_batch: pa.RecordBatch) -> None:
         converter = ArrowModelConverter(FixedSizeListModel)
         results = converter.convert(fixed_size_list_batch)
         assert results[1].values is None
 
-    def test_fixed_size_list_all_elements(
-        self, fixed_size_list_batch: pa.RecordBatch
-    ) -> None:
+    def test_fixed_size_list_all_elements(self, fixed_size_list_batch: pa.RecordBatch) -> None:
         converter = ArrowModelConverter(FixedSizeListModel)
         results = converter.convert(fixed_size_list_batch)
         assert results[2].values == [4, 5, 6]
@@ -558,38 +530,28 @@ class TestRunEndEncoded:
 
 
 class TestUnion:
-    def test_sparse_union_int_variant(
-        self, sparse_union_batch: pa.RecordBatch
-    ) -> None:
+    def test_sparse_union_int_variant(self, sparse_union_batch: pa.RecordBatch) -> None:
         converter = ArrowModelConverter(UnionIntStrModel)
         results = converter.convert(sparse_union_batch)
         assert results[0].val == 1
 
-    def test_sparse_union_str_variant(
-        self, sparse_union_batch: pa.RecordBatch
-    ) -> None:
+    def test_sparse_union_str_variant(self, sparse_union_batch: pa.RecordBatch) -> None:
         converter = ArrowModelConverter(UnionIntStrModel)
         results = converter.convert(sparse_union_batch)
         assert results[1].val == "hello"
 
-    def test_sparse_union_second_int(
-        self, sparse_union_batch: pa.RecordBatch
-    ) -> None:
+    def test_sparse_union_second_int(self, sparse_union_batch: pa.RecordBatch) -> None:
         converter = ArrowModelConverter(UnionIntStrModel)
         results = converter.convert(sparse_union_batch)
         assert results[2].val == 2
 
-    def test_dense_union_int_variant(
-        self, dense_union_batch: pa.RecordBatch
-    ) -> None:
+    def test_dense_union_int_variant(self, dense_union_batch: pa.RecordBatch) -> None:
         converter = ArrowModelConverter(UnionIntStrModel)
         results = converter.convert(dense_union_batch)
         assert results[0].val == 1
         assert results[2].val == 2
 
-    def test_dense_union_str_variant(
-        self, dense_union_batch: pa.RecordBatch
-    ) -> None:
+    def test_dense_union_str_variant(self, dense_union_batch: pa.RecordBatch) -> None:
         converter = ArrowModelConverter(UnionIntStrModel)
         results = converter.convert(dense_union_batch)
         assert results[1].val == "hello"
@@ -607,9 +569,7 @@ class TestValidatedContainerTypes:
         assert results[0].interval == (1, 2, 3000000000)
         assert results[1].interval is None
 
-    def test_fixed_size_list_validated(
-        self, fixed_size_list_batch: pa.RecordBatch
-    ) -> None:
+    def test_fixed_size_list_validated(self, fixed_size_list_batch: pa.RecordBatch) -> None:
         converter = ArrowModelConverter(FixedSizeListModel, validate=True)
         results = converter.convert(fixed_size_list_batch)
         assert results[0].values == [1, 2, 3]
@@ -629,18 +589,14 @@ class TestValidatedContainerTypes:
         assert results[2].name == "bbb"
         assert results[4].name == "ccc"
 
-    def test_sparse_union_validated(
-        self, sparse_union_batch: pa.RecordBatch
-    ) -> None:
+    def test_sparse_union_validated(self, sparse_union_batch: pa.RecordBatch) -> None:
         converter = ArrowModelConverter(UnionIntStrModel, validate=True)
         results = converter.convert(sparse_union_batch)
         assert results[0].val == 1
         assert results[1].val == "hello"
         assert results[2].val == 2
 
-    def test_dense_union_validated(
-        self, dense_union_batch: pa.RecordBatch
-    ) -> None:
+    def test_dense_union_validated(self, dense_union_batch: pa.RecordBatch) -> None:
         converter = ArrowModelConverter(UnionIntStrModel, validate=True)
         results = converter.convert(dense_union_batch)
         assert results[0].val == 1
@@ -680,7 +636,9 @@ class TestValidatedScalarTypes:
         assert results[1].t is None
 
     def test_binary_validated(self, binary_batch: pa.RecordBatch) -> None:
-        """Validated path sends base64-encoded binary in JSON.
+        """
+        Validated path sends base64-encoded binary in JSON.
+
         Pydantic treats JSON string as UTF-8 bytes, not base64-decoded.
         So the result is the base64 string encoded as bytes.
         """
@@ -710,14 +668,10 @@ class TestValidatedScalarTypes:
         assert results[0].name == "hello_world_test"
         assert results[1].name is None
 
-    def test_decimal256_validated(
-        self, decimal256_batch: pa.RecordBatch
-    ) -> None:
+    def test_decimal256_validated(self, decimal256_batch: pa.RecordBatch) -> None:
         converter = ArrowModelConverter(Decimal256Model, validate=True)
         results = converter.convert(decimal256_batch)
-        assert results[0].big_amount == decimal.Decimal(
-            "123456789012345678901234567890.12345678"
-        )
+        assert results[0].big_amount == decimal.Decimal("123456789012345678901234567890.12345678")
         assert results[1].big_amount is None
 
     def test_time64_validated(self, time64_us_batch: pa.RecordBatch) -> None:
@@ -726,9 +680,7 @@ class TestValidatedScalarTypes:
         assert results[0].t == datetime.time(10, 30, 0, 500123)
         assert results[1].t is None
 
-    def test_large_binary_validated(
-        self, large_binary_batch: pa.RecordBatch
-    ) -> None:
+    def test_large_binary_validated(self, large_binary_batch: pa.RecordBatch) -> None:
         """Validated path sends base64-encoded binary in JSON."""
         import base64
 
@@ -738,9 +690,7 @@ class TestValidatedScalarTypes:
         assert results[0].data == expected
         assert results[1].data is None
 
-    def test_fixed_size_binary_validated(
-        self, fixed_size_binary_batch: pa.RecordBatch
-    ) -> None:
+    def test_fixed_size_binary_validated(self, fixed_size_binary_batch: pa.RecordBatch) -> None:
         """Validated path sends base64-encoded binary in JSON."""
         import base64
 
@@ -750,9 +700,7 @@ class TestValidatedScalarTypes:
         assert results[0].hash == expected
         assert results[1].hash is None
 
-    def test_binaryview_validated(
-        self, binaryview_batch: pa.RecordBatch
-    ) -> None:
+    def test_binaryview_validated(self, binaryview_batch: pa.RecordBatch) -> None:
         """Validated path sends base64-encoded binary in JSON."""
         import base64
 

@@ -1,23 +1,32 @@
-"""Arrowdantic: dict-free conversion from Arrow buffers to Pydantic model instances."""
+"""Arrowmodel: dict-free conversion from Arrow buffers to Pydantic model instances."""
 
 from __future__ import annotations
 
 import typing
-from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any, cast
 
 from pydantic import AliasChoices, AliasPath, BaseModel
 
-from arrowdantic import _core as _core
+from arrowmodel import _core as _core
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     import pyarrow as pa
 
-__all__ = ["ArrowModelConverter", "from_arrow", "iter_arrow", "_build_field_map", "_get_nested_model", "_core"]
+__all__ = [
+    "ArrowModelConverter",
+    "from_arrow",
+    "iter_arrow",
+    "_build_field_map",
+    "_get_nested_model",
+    "_core",
+]
 
 
 def _get_nested_model(annotation: Any) -> type[BaseModel] | None:
-    """Extract nested BaseModel class from a Pydantic field annotation.
+    """
+    Extract nested BaseModel class from a Pydantic field annotation.
 
     Handles:
     - Direct BaseModel subclass: ``NestedModel`` -> ``NestedModel``
@@ -40,7 +49,8 @@ def _get_nested_model(annotation: Any) -> type[BaseModel] | None:
 
 
 def _build_field_map(model_class: type[BaseModel]) -> dict[str, str]:
-    """Build ``{arrow_column_name: pydantic_field_name}`` mapping.
+    """
+    Build ``{arrow_column_name: pydantic_field_name}`` mapping.
 
     Resolution priority (ALIAS-01): validation_alias > alias > field_name.
     Raises NotImplementedError for AliasPath, AliasChoices (ALIAS-03).
@@ -78,9 +88,7 @@ def _build_field_map(model_class: type[BaseModel]) -> dict[str, str]:
         field_map[lookup_name] = field_name
 
     # ALIAS-02: populate_by_name / validate_by_name support
-    accept_by_name = config.get("validate_by_name", False) or config.get(
-        "populate_by_name", False
-    )
+    accept_by_name = config.get("validate_by_name", False) or config.get("populate_by_name", False)
     if accept_by_name:
         for field_name in model_class.model_fields:
             # Only add if not already present (alias takes priority)
@@ -91,7 +99,8 @@ def _build_field_map(model_class: type[BaseModel]) -> dict[str, str]:
 
 
 class ArrowModelConverter:
-    """Convert Arrow RecordBatch data to Pydantic model instances.
+    """
+    Convert Arrow RecordBatch data to Pydantic model instances.
 
     Cross-references Arrow schema against Pydantic model fields at
     construction time (alias-aware field map built once) and at convert()
@@ -119,10 +128,9 @@ class ArrowModelConverter:
         # SCHEMA-01, SCHEMA-02, ALIAS-01: Build alias-aware field map once at init
         self._field_map: dict[str, str] = _build_field_map(model_class)
 
-    def _resolve_columns(
-        self, schema: pa.Schema
-    ) -> list[tuple[int, str, type[BaseModel] | None]]:
-        """Resolve Arrow column indices from schema using the field map.
+    def _resolve_columns(self, schema: pa.Schema) -> list[tuple[int, str, type[BaseModel] | None]]:
+        """
+        Resolve Arrow column indices from schema using the field map.
 
         Returns ``field_specs``: list of ``(col_index, field_name, nested_model_cls)``
         for Rust. ``nested_model_cls`` is non-None when the Pydantic field's
@@ -158,9 +166,7 @@ class ArrowModelConverter:
         for field_name, field_info in self._model_class.model_fields.items():
             if field_name not in resolved_fields and field_info.is_required():
                 # Find the lookup name(s) for this field for the error message
-                lookup_names = [
-                    ln for ln, fn in self._field_map.items() if fn == field_name
-                ]
+                lookup_names = [ln for ln, fn in self._field_map.items() if fn == field_name]
                 missing.extend(lookup_names[:1])  # report primary lookup name
 
         if missing:
@@ -172,7 +178,8 @@ class ArrowModelConverter:
         return field_specs
 
     def convert(self, data: pa.RecordBatch | pa.Table) -> list[BaseModel]:
-        """Convert Arrow RecordBatch or Table to a list of Pydantic model instances.
+        """
+        Convert Arrow RecordBatch or Table to a list of Pydantic model instances.
 
         Per API-02: Returns list[Model].
         Per INPUT-01: Accepts pyarrow RecordBatch.
@@ -192,13 +199,12 @@ class ArrowModelConverter:
             # RecordBatch input: delegate to Rust convert_record_batch (fast or validated)
             batch = cast("pa.RecordBatch", data)
             if self._validate:
-                return _core.convert_record_batch_validated(
-                    batch, self._model_class, field_specs
-                )
+                return _core.convert_record_batch_validated(batch, self._model_class, field_specs)
             return _core.convert_record_batch(batch, self._model_class, field_specs)
 
     def iter(self, data: pa.RecordBatch | pa.Table) -> Iterator[BaseModel]:
-        """Lazily yield model instances one batch at a time.
+        """
+        Lazily yield model instances one batch at a time.
 
         For Tables with multiple batches, only one batch's worth of model
         instances is materialized in memory at a time. For RecordBatch input,
@@ -219,9 +225,7 @@ class ArrowModelConverter:
                     batch, self._model_class, field_specs
                 )
             else:
-                results = _core.convert_record_batch(
-                    batch, self._model_class, field_specs
-                )
+                results = _core.convert_record_batch(batch, self._model_class, field_specs)
             yield from results
 
 
@@ -231,7 +235,8 @@ def from_arrow(
     *,
     validate: bool = False,
 ) -> list[BaseModel]:
-    """One-shot conversion from Arrow data to Pydantic model instances.
+    """
+    One-shot conversion from Arrow data to Pydantic model instances.
 
     Convenience function that creates a temporary ArrowModelConverter
     and calls convert(). For repeated conversions of the same model,
@@ -250,7 +255,8 @@ def iter_arrow(
     *,
     validate: bool = False,
 ) -> Iterator[BaseModel]:
-    """One-shot lazy iteration from Arrow data to Pydantic model instances.
+    """
+    One-shot lazy iteration from Arrow data to Pydantic model instances.
 
     Convenience function that creates a temporary ArrowModelConverter
     and calls iter(). For repeated conversions of the same model,

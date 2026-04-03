@@ -43,14 +43,14 @@ class TestModuleImport:
     """Verify the Rust extension module is importable (BUILD-01)."""
 
     def test_import_core_module(self) -> None:
-        """BUILD-01: import arrowdantic._core succeeds."""
-        from arrowdantic import _core
+        """BUILD-01: import arrowmodel._core succeeds."""
+        from arrowmodel import _core
 
         assert hasattr(_core, "record_batch_info")
 
     def test_import_record_batch_info(self) -> None:
         """BUILD-01: record_batch_info function is callable."""
-        from arrowdantic._core import record_batch_info
+        from arrowmodel._core import record_batch_info
 
         assert callable(record_batch_info)
 
@@ -60,7 +60,7 @@ class TestPyCapsuleRoundTrip:
 
     def test_record_batch_info_returns_shape(self, sample_record_batch: pa.RecordBatch) -> None:
         """INPUT-03: record_batch_info accepts pyarrow RecordBatch via PyCapsule."""
-        from arrowdantic._core import record_batch_info
+        from arrowmodel._core import record_batch_info
 
         rows, cols = record_batch_info(sample_record_batch)
         assert rows == 3
@@ -68,7 +68,7 @@ class TestPyCapsuleRoundTrip:
 
     def test_empty_record_batch(self) -> None:
         """INPUT-03: handles empty RecordBatch."""
-        from arrowdantic._core import record_batch_info
+        from arrowmodel._core import record_batch_info
 
         batch = pa.record_batch({"x": pa.array([], type=pa.int64())})
         rows, cols = record_batch_info(batch)
@@ -77,7 +77,7 @@ class TestPyCapsuleRoundTrip:
 
     def test_many_columns(self) -> None:
         """INPUT-03: handles RecordBatch with many columns."""
-        from arrowdantic._core import record_batch_info
+        from arrowmodel._core import record_batch_info
 
         data = {f"col_{i}": [1, 2, 3] for i in range(20)}
         batch = pa.record_batch(data)

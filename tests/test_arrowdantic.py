@@ -1,11 +1,11 @@
-"""Basic tests for arrowdantic."""
+"""Basic tests for arrowmodel."""
 
-import arrowdantic
+import arrowmodel
 
 
 def test_package_has_all():
-    assert hasattr(arrowdantic, "__all__")
+    assert hasattr(arrowmodel, "__all__")
 
 
 def test_core_module_exposed():
-    assert hasattr(arrowdantic, "_core")
+    assert hasattr(arrowmodel, "_core")

@@ -1,5 +1,5 @@
 [project]
-name = "arrowdantic"
+name = "arrowmodel"
 version = "0.1.0"
 description = "A Python library for Apache Arrow"
 readme = "README.md"
@@ -68,7 +68,7 @@ ignore = [
 [tool.maturin]
 features = ["pyo3/extension-module"]
 python-source = "src"
-module-name = "arrowdantic._core"
+module-name = "arrowmodel._core"
 
 [tool.uv]
 cache-keys = [{ file = "pyproject.toml" }, { file = "rust/Cargo.toml" }, { file = "rust/**/*.rs" }]

@@ -1,4 +1,4 @@
-"""Shared pytest fixtures for arrowdantic test suite."""
+"""Shared pytest fixtures for arrowmodel test suite."""
 
 from __future__ import annotations
 
@@ -7,7 +7,6 @@ import datetime
 
 import pyarrow as pa
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Arrow C Data Interface helpers for interval subtype construction
@@ -48,10 +47,9 @@ class _CArray(ctypes.Structure):
     ]
 
 
-def _reinterpret_column(
-    batch: pa.RecordBatch, col_name: str, new_format: bytes
-) -> pa.RecordBatch:
-    """Re-import *batch* via C Data Interface with one column's type changed.
+def _reinterpret_column(batch: pa.RecordBatch, col_name: str, new_format: bytes) -> pa.RecordBatch:
+    """
+    Re-import *batch* via C Data Interface with one column's type changed.
 
     This is the only reliable way to create IntervalYearMonth / IntervalDayTime
     RecordBatches from pyarrow, which lacks native constructors for these types.
@@ -61,16 +59,12 @@ def _reinterpret_column(
     batch._export_to_c(ctypes.addressof(c_arr), ctypes.addressof(c_sch))
     col_name_bytes = col_name.encode()
     for i in range(c_sch.n_children):
-        child_ptr = ctypes.cast(
-            c_sch.children, ctypes.POINTER(ctypes.c_void_p)
-        )[i]
+        child_ptr = ctypes.cast(c_sch.children, ctypes.POINTER(ctypes.c_void_p))[i]
         child = ctypes.cast(child_ptr, ctypes.POINTER(_CSchema)).contents
         if child.name == col_name_bytes:
             child.format = new_format
             break
-    return pa.RecordBatch._import_from_c(
-        ctypes.addressof(c_arr), ctypes.addressof(c_sch)
-    )
+    return pa.RecordBatch._import_from_c(ctypes.addressof(c_arr), ctypes.addressof(c_sch))  # type: ignore[arg-type]
 
 
 @pytest.fixture
@@ -213,9 +207,7 @@ def timestamp_ns_batch() -> pa.RecordBatch:
     """Nanosecond timestamp for TEMP-05 truncation test."""
     return pa.record_batch(
         {
-            "created_at": pa.array(
-                [1705312200123456789], type=pa.timestamp("ns")
-            ),
+            "created_at": pa.array([1705312200123456789], type=pa.timestamp("ns")),
         }
     )
 
@@ -238,9 +230,7 @@ def duration_batch() -> pa.RecordBatch:
     """RecordBatch with microsecond-precision duration column."""
     return pa.record_batch(
         {
-            "elapsed": pa.array(
-                [3600000000, None, 1000000], type=pa.duration("us")
-            ),
+            "elapsed": pa.array([3600000000, None, 1000000], type=pa.duration("us")),
         }
     )
 
@@ -277,9 +267,7 @@ def list_int_batch() -> pa.RecordBatch:
     """RecordBatch with List(Int64) column."""
     return pa.record_batch(
         {
-            "values": pa.array(
-                [[1, 2, 3], [4, 5], [6]], type=pa.list_(pa.int64())
-            ),
+            "values": pa.array([[1, 2, 3], [4, 5], [6]], type=pa.list_(pa.int64())),
         }
     )
 
@@ -289,9 +277,7 @@ def list_str_batch() -> pa.RecordBatch:
     """RecordBatch with List(Utf8) column."""
     return pa.record_batch(
         {
-            "tags": pa.array(
-                [["a", "b"], ["c"]], type=pa.list_(pa.utf8())
-            ),
+            "tags": pa.array([["a", "b"], ["c"]], type=pa.list_(pa.utf8())),
         }
     )
 
@@ -409,9 +395,7 @@ def time32_second_batch() -> pa.RecordBatch:
     """RecordBatch with Time32(second) column."""
     return pa.record_batch(
         {
-            "t": pa.array(
-                [37800, None, 0], type=pa.time32("s")
-            ),  # 10:30:00, null, 00:00:00
+            "t": pa.array([37800, None, 0], type=pa.time32("s")),  # 10:30:00, null, 00:00:00
         }
     )
 
@@ -433,9 +417,7 @@ def time64_us_batch() -> pa.RecordBatch:
     """RecordBatch with Time64(microsecond) column."""
     return pa.record_batch(
         {
-            "t": pa.array(
-                [37800500123, None, 0], type=pa.time64("us")
-            ),  # 10:30:00.500123
+            "t": pa.array([37800500123, None, 0], type=pa.time64("us")),  # 10:30:00.500123
         }
     )
 
@@ -467,9 +449,7 @@ def large_binary_batch() -> pa.RecordBatch:
     """RecordBatch with LargeBinary column including a null."""
     return pa.record_batch(
         {
-            "data": pa.array(
-                [b"hello", None, b"world"], type=pa.large_binary()
-            ),
+            "data": pa.array([b"hello", None, b"world"], type=pa.large_binary()),
         }
     )
 
@@ -489,27 +469,25 @@ def fixed_size_binary_batch() -> pa.RecordBatch:
 
 @pytest.fixture
 def utf8view_batch() -> pa.RecordBatch:
-    """RecordBatch with Utf8View column including a null.
+    """
+    RecordBatch with Utf8View column including a null.
 
     Uses strings >12 bytes to avoid pyarrow C Data Interface segfault
     with inline StringView values (upstream pyarrow bug).
     """
-    arr = pa.array(
-        ["hello_world_test", None, "world_hello_test"]
-    ).cast(pa.string_view())
+    arr = pa.array(["hello_world_test", None, "world_hello_test"]).cast(pa.string_view())
     return pa.record_batch({"name": arr})
 
 
 @pytest.fixture
 def binaryview_batch() -> pa.RecordBatch:
-    """RecordBatch with BinaryView column including a null.
+    """
+    RecordBatch with BinaryView column including a null.
 
     Uses values >12 bytes to avoid pyarrow C Data Interface segfault
     with inline BinaryView values (upstream pyarrow bug).
     """
-    arr = pa.array(
-        [b"abc_data_padding!", None, b"xyz_data_padding!"]
-    ).cast(pa.binary_view())
+    arr = pa.array([b"abc_data_padding!", None, b"xyz_data_padding!"]).cast(pa.binary_view())
     return pa.record_batch({"data": arr})
 
 
@@ -534,21 +512,21 @@ def interval_mdn_batch() -> pa.RecordBatch:
 
 @pytest.fixture
 def interval_ym_batch() -> pa.RecordBatch:
-    """IntervalYearMonth with varying month values.
+    """
+    IntervalYearMonth with varying month values.
 
     pyarrow has no public constructor for IntervalYearMonth arrays.
     We build an int32 batch (the physical storage type for YearMonth)
     and re-import with the correct Arrow C format string ``tiM``.
     """
-    src = pa.record_batch(
-        {"interval": pa.array([14, None, 0], type=pa.int32())}
-    )
+    src = pa.record_batch({"interval": pa.array([14, None, 0], type=pa.int32())})
     return _reinterpret_column(src, "interval", b"tiM")
 
 
 @pytest.fixture
 def interval_dt_batch() -> pa.RecordBatch:
-    """IntervalDayTime with varying day/ms values.
+    """
+    IntervalDayTime with varying day/ms values.
 
     IntervalDayTime is physically stored as int64 where each value
     encodes ``(days, milliseconds)`` as a struct ``{i32, i32}``.
@@ -562,9 +540,7 @@ def interval_dt_batch() -> pa.RecordBatch:
     """
     val0 = 5 | (3600000 << 32)  # 5 days, 3600000 ms
     val2 = 0
-    src = pa.record_batch(
-        {"interval": pa.array([val0, None, val2], type=pa.int64())}
-    )
+    src = pa.record_batch({"interval": pa.array([val0, None, val2], type=pa.int64())})
     return _reinterpret_column(src, "interval", b"tiD")
 
 
@@ -599,7 +575,7 @@ def ree_batch() -> pa.RecordBatch:
     """RunEndEncoded string column with 3 runs."""
     values = pa.array(["aaa", "bbb", "ccc"])
     run_ends = pa.array([2, 4, 5], type=pa.int32())
-    ree_arr = pa.RunEndEncodedArray.from_arrays(run_ends, values)
+    ree_arr: pa.RunEndEncodedArray = pa.RunEndEncodedArray.from_arrays(run_ends, values)  # type: ignore[type-arg]
     return pa.record_batch({"name": ree_arr})
 
 

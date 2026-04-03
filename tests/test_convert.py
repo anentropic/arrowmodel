@@ -23,8 +23,7 @@ import pyarrow as pa
 import pytest
 from pydantic import AliasChoices, AliasGenerator, AliasPath, BaseModel, ConfigDict, Field
 
-from arrowdantic import ArrowModelConverter, from_arrow
-from arrowdantic import _build_field_map
+from arrowmodel import ArrowModelConverter, _build_field_map, from_arrow
 
 
 class IntModel(BaseModel):
@@ -335,9 +334,7 @@ class AliasChoicesModel(BaseModel):
 
 class AliasGeneratorModel(BaseModel):
     model_config = ConfigDict(
-        alias_generator=AliasGenerator(
-            validation_alias=lambda field_name: field_name.upper()
-        )
+        alias_generator=AliasGenerator(validation_alias=lambda field_name: field_name.upper())
     )
     user_id: int
 
@@ -404,12 +401,14 @@ class TestResolveColumns:
 
     def test_all_required_fields_present(self) -> None:
         converter = ArrowModelConverter(MixedModel)
-        schema = pa.schema([
-            ("id", pa.int64()),
-            ("name", pa.utf8()),
-            ("score", pa.float64()),
-            ("active", pa.bool_()),
-        ])
+        schema = pa.schema(
+            [
+                ("id", pa.int64()),
+                ("name", pa.utf8()),
+                ("score", pa.float64()),
+                ("active", pa.bool_()),
+            ]
+        )
         field_specs = converter._resolve_columns(schema)
         assert len(field_specs) == 4
 
@@ -438,13 +437,15 @@ class TestResolveColumns:
 
     def test_extra_arrow_columns_ignored(self) -> None:
         converter = ArrowModelConverter(MixedModel)
-        schema = pa.schema([
-            ("id", pa.int64()),
-            ("name", pa.utf8()),
-            ("score", pa.float64()),
-            ("active", pa.bool_()),
-            ("extra_col", pa.int64()),
-        ])
+        schema = pa.schema(
+            [
+                ("id", pa.int64()),
+                ("name", pa.utf8()),
+                ("score", pa.float64()),
+                ("active", pa.bool_()),
+                ("extra_col", pa.int64()),
+            ]
+        )
         field_specs = converter._resolve_columns(schema)
         assert len(field_specs) == 4
         field_names = [fs[1] for fs in field_specs]
@@ -478,17 +479,13 @@ class TestAliasResolution:
 
     def test_field_name_fallback(self) -> None:
         """ALIAS-01: field_name used when no aliases."""
-        batch = pa.record_batch(
-            {"id": [1], "name": ["x"], "score": [1.0], "active": [True]}
-        )
+        batch = pa.record_batch({"id": [1], "name": ["x"], "score": [1.0], "active": [True]})
         results = ArrowModelConverter(MixedModel).convert(batch)
         assert results[0].id == 1
 
     def test_mixed_alias_types(self) -> None:
         """ALIAS-01: validation_alias, alias, and field_name all work together."""
-        batch = pa.record_batch(
-            {"userId": [1], "displayName": ["a"], "email": ["x@y.z"]}
-        )
+        batch = pa.record_batch({"userId": [1], "displayName": ["a"], "email": ["x@y.z"]})
         results = ArrowModelConverter(MixedAliasModel).convert(batch)
         assert results[0].user_id == 1
         assert results[0].display_name == "a"
@@ -589,7 +586,14 @@ class TestTableInput:
 
     def test_table_conversion(self) -> None:
         """INPUT-02: Table with single batch converts correctly."""
-        table = pa.table({"id": [1, 2, 3], "name": ["a", "b", "c"], "score": [1.0, 2.0, 3.0], "active": [True, False, True]})
+        table = pa.table(
+            {
+                "id": [1, 2, 3],
+                "name": ["a", "b", "c"],
+                "score": [1.0, 2.0, 3.0],
+                "active": [True, False, True],
+            }
+        )
         results = ArrowModelConverter(MixedModel).convert(table)
         assert len(results) == 3
         assert results[0].id == 1
@@ -598,9 +602,18 @@ class TestTableInput:
 
     def test_multi_batch_table(self) -> None:
         """INPUT-02: Table with multiple batches processes all rows."""
-        batch1 = pa.record_batch({"id": [1, 2], "name": ["a", "b"], "score": [1.0, 2.0], "active": [True, False]})
+        batch1 = pa.record_batch(
+            {"id": [1, 2], "name": ["a", "b"], "score": [1.0, 2.0], "active": [True, False]}
+        )
         batch2 = pa.record_batch({"id": [3], "name": ["c"], "score": [3.0], "active": [True]})
-        batch3 = pa.record_batch({"id": [4, 5, 6], "name": ["d", "e", "f"], "score": [4.0, 5.0, 6.0], "active": [False, True, False]})
+        batch3 = pa.record_batch(
+            {
+                "id": [4, 5, 6],
+                "name": ["d", "e", "f"],
+                "score": [4.0, 5.0, 6.0],
+                "active": [False, True, False],
+            }
+        )
         table = pa.Table.from_batches([batch1, batch2, batch3])
         results = ArrowModelConverter(MixedModel).convert(table)
         assert len(results) == 6
@@ -611,7 +624,14 @@ class TestTableInput:
 
     def test_empty_table(self) -> None:
         """INPUT-02: Empty Table returns empty list."""
-        table = pa.table({"id": pa.array([], type=pa.int64()), "name": pa.array([], type=pa.string()), "score": pa.array([], type=pa.float64()), "active": pa.array([], type=pa.bool_())})
+        table = pa.table(
+            {
+                "id": pa.array([], type=pa.int64()),
+                "name": pa.array([], type=pa.string()),
+                "score": pa.array([], type=pa.float64()),
+                "active": pa.array([], type=pa.bool_()),
+            }
+        )
         results = ArrowModelConverter(MixedModel).convert(table)
         assert results == []
 
@@ -629,7 +649,9 @@ class TestFromArrow:
 
     def test_from_arrow_record_batch(self) -> None:
         """API-03: from_arrow works with RecordBatch."""
-        batch = pa.record_batch({"id": [1, 2], "name": ["a", "b"], "score": [1.0, 2.0], "active": [True, False]})
+        batch = pa.record_batch(
+            {"id": [1, 2], "name": ["a", "b"], "score": [1.0, 2.0], "active": [True, False]}
+        )
         results = from_arrow(MixedModel, batch)
         assert len(results) == 2
         assert results[0].id == 1
@@ -637,7 +659,14 @@ class TestFromArrow:
 
     def test_from_arrow_table(self) -> None:
         """API-03: from_arrow works with Table."""
-        table = pa.table({"id": [1, 2, 3], "name": ["a", "b", "c"], "score": [1.0, 2.0, 3.0], "active": [True, False, True]})
+        table = pa.table(
+            {
+                "id": [1, 2, 3],
+                "name": ["a", "b", "c"],
+                "score": [1.0, 2.0, 3.0],
+                "active": [True, False, True],
+            }
+        )
         results = from_arrow(MixedModel, table)
         assert len(results) == 3
         assert results[2].name == "c"
@@ -645,9 +674,11 @@ class TestFromArrow:
 
     def test_from_arrow_validated_record_batch(self) -> None:
         """DEBT-04: from_arrow(validate=True) works with RecordBatch."""
-        from arrowdantic import from_arrow
-        batch = pa.record_batch({"id": [1, 2], "name": ["a", "b"],
-                                 "score": [1.0, 2.0], "active": [True, False]})
+        from arrowmodel import from_arrow
+
+        batch = pa.record_batch(
+            {"id": [1, 2], "name": ["a", "b"], "score": [1.0, 2.0], "active": [True, False]}
+        )
         results = from_arrow(MixedModel, batch, validate=True)
         assert len(results) == 2
         assert results[0].id == 1
@@ -656,9 +687,16 @@ class TestFromArrow:
 
     def test_from_arrow_validated_table(self) -> None:
         """DEBT-04: from_arrow(validate=True) works with Table."""
-        from arrowdantic import from_arrow
-        table = pa.table({"id": [1, 2, 3], "name": ["a", "b", "c"],
-                         "score": [1.0, 2.0, 3.0], "active": [True, False, True]})
+        from arrowmodel import from_arrow
+
+        table = pa.table(
+            {
+                "id": [1, 2, 3],
+                "name": ["a", "b", "c"],
+                "score": [1.0, 2.0, 3.0],
+                "active": [True, False, True],
+            }
+        )
         results = from_arrow(MixedModel, table, validate=True)
         assert len(results) == 3
         assert results[0].id == 1
@@ -670,7 +708,8 @@ class TestStringInterning:
     """Tests for FAST-02: Pre-interned Python field name strings."""
 
     def test_interned_string_correctness(self) -> None:
-        """FAST-02: Interned strings are reused across rows.
+        """
+        FAST-02: Interned strings are reused across rows.
 
         model_fields_set contains the field names used in model_construct kwargs.
         If strings are interned, the same string object is reused, so we can
@@ -678,12 +717,14 @@ class TestStringInterning:
         refer to the same Python string objects.
         """
         n = 100
-        batch = pa.record_batch({
-            "id": pa.array(list(range(n)), type=pa.int64()),
-            "name": pa.array([f"item_{i}" for i in range(n)]),
-            "score": pa.array([float(i) for i in range(n)], type=pa.float64()),
-            "active": pa.array([i % 2 == 0 for i in range(n)]),
-        })
+        batch = pa.record_batch(
+            {
+                "id": pa.array(list(range(n)), type=pa.int64()),
+                "name": pa.array([f"item_{i}" for i in range(n)]),
+                "score": pa.array([float(i) for i in range(n)], type=pa.float64()),
+                "active": pa.array([i % 2 == 0 for i in range(n)]),
+            }
+        )
         results = ArrowModelConverter(MixedModel).convert(batch)
         # All instances should have been constructed -- basic sanity
         assert len(results) == n
@@ -738,20 +779,14 @@ class TestTemporalTypes:
         assert results[2].event_date == datetime.date(2020, 6, 30)
         assert isinstance(results[0].event_date, datetime.date)
 
-    def test_timestamp_naive_microsecond(
-        self, timestamp_us_batch: pa.RecordBatch
-    ) -> None:
+    def test_timestamp_naive_microsecond(self, timestamp_us_batch: pa.RecordBatch) -> None:
         """TEMP-02: Timestamp(us, None) produces naive datetime.datetime."""
         results = ArrowModelConverter(TimestampModel).convert(timestamp_us_batch)
         assert len(results) == 3
-        assert results[0].created_at == datetime.datetime(
-            2024, 1, 15, 10, 30, 0, 123456
-        )
+        assert results[0].created_at == datetime.datetime(2024, 1, 15, 10, 30, 0, 123456)
         assert results[0].created_at.tzinfo is None
         assert results[1].created_at is None
-        assert results[2].created_at == datetime.datetime(
-            2020, 6, 30, 23, 59, 59, 999999
-        )
+        assert results[2].created_at == datetime.datetime(2020, 6, 30, 23, 59, 59, 999999)
 
     def test_timestamp_naive_second(self) -> None:
         """TEMP-02: Timestamp(s, None) produces naive datetime with zero microseconds."""
@@ -782,18 +817,14 @@ class TestTemporalTypes:
         assert results[0].created_at.tzinfo is not None
         assert results[0].created_at.tzname() is not None
 
-    def test_timestamp_aware_iana(
-        self, timestamp_tz_batch: pa.RecordBatch
-    ) -> None:
+    def test_timestamp_aware_iana(self, timestamp_tz_batch: pa.RecordBatch) -> None:
         """TEMP-03: Timestamp with IANA timezone preserves ZoneInfo."""
         results = ArrowModelConverter(TimestampModel).convert(timestamp_tz_batch)
         assert results[0].created_at is not None
         assert results[0].created_at.tzinfo is not None
         assert results[0].created_at.tzinfo == ZoneInfo("America/New_York")
 
-    def test_nanosecond_truncation(
-        self, timestamp_ns_batch: pa.RecordBatch
-    ) -> None:
+    def test_nanosecond_truncation(self, timestamp_ns_batch: pa.RecordBatch) -> None:
         """TEMP-05: Nanosecond timestamp truncates to microsecond precision."""
         results = ArrowModelConverter(TimestampModel).convert(timestamp_ns_batch)
         assert len(results) == 1
@@ -941,9 +972,7 @@ class TestListTypes:
         """CPLX-01: Null list entries produce None."""
         batch = pa.record_batch(
             {
-                "values": pa.array(
-                    [[1, 2], None, [3]], type=pa.list_(pa.int64())
-                ),
+                "values": pa.array([[1, 2], None, [3]], type=pa.list_(pa.int64())),
             }
         )
         results = ArrowModelConverter(ListIntModel).convert(batch)
@@ -956,9 +985,7 @@ class TestListTypes:
         """CPLX-01: Empty sublists produce empty Python lists."""
         batch = pa.record_batch(
             {
-                "values": pa.array(
-                    [[], [1]], type=pa.list_(pa.int64())
-                ),
+                "values": pa.array([[], [1]], type=pa.list_(pa.int64())),
             }
         )
         results = ArrowModelConverter(ListIntModel).convert(batch)
@@ -970,9 +997,7 @@ class TestListTypes:
         """CPLX-02: LargeList(Int64) produces same results as List."""
         batch = pa.record_batch(
             {
-                "values": pa.array(
-                    [[1, 2], [3]], type=pa.large_list(pa.int64())
-                ),
+                "values": pa.array([[1, 2], [3]], type=pa.large_list(pa.int64())),
             }
         )
         results = ArrowModelConverter(ListIntModel).convert(batch)
@@ -1193,9 +1218,7 @@ class TestValidatedPath:
         """VALID-02: validate=True with Date32 produces correct datetime.date."""
         batch = pa.record_batch(
             {
-                "event_date": pa.array(
-                    [datetime.date(2024, 1, 15), None], type=pa.date32()
-                ),
+                "event_date": pa.array([datetime.date(2024, 1, 15), None], type=pa.date32()),
             }
         )
         converter = ArrowModelConverter(ValidatedDateModel, validate=True)
@@ -1245,9 +1268,7 @@ class TestValidatedPath:
         """VALID-02: validate=True with Duration produces correct timedelta."""
         batch = pa.record_batch(
             {
-                "elapsed": pa.array(
-                    [3600000000, None, 1000000], type=pa.duration("us")
-                ),
+                "elapsed": pa.array([3600000000, None, 1000000], type=pa.duration("us")),
             }
         )
         converter = ArrowModelConverter(ValidatedDurationModel, validate=True)
@@ -1261,9 +1282,7 @@ class TestValidatedPath:
         """VALID-02: validate=True with List(Int64) produces correct Python lists."""
         batch = pa.record_batch(
             {
-                "values": pa.array(
-                    [[1, 2, 3], None, [4]], type=pa.list_(pa.int64())
-                ),
+                "values": pa.array([[1, 2, 3], None, [4]], type=pa.list_(pa.int64())),
             }
         )
         converter = ArrowModelConverter(ValidatedListModel, validate=True)
@@ -1279,9 +1298,7 @@ class TestValidatedPath:
             [pa.array(["NYC", "LA"]), pa.array([10001, 90001], type=pa.int32())],
             names=["city", "zip_code"],
         )
-        batch = pa.record_batch(
-            {"name": pa.array(["Alice", "Bob"]), "address": struct_arr}
-        )
+        batch = pa.record_batch({"name": pa.array(["Alice", "Bob"]), "address": struct_arr})
         converter = ArrowModelConverter(ValidatedPersonModel, validate=True)
         results = converter.convert(batch)
         assert len(results) == 2
@@ -1318,9 +1335,7 @@ class TestValidatedPath:
 
     def test_validated_dict_column(self) -> None:
         """VALID-02: validate=True with dictionary-encoded column works correctly."""
-        batch = pa.record_batch(
-            {"category": pa.array(["a", "b", "a"]).dictionary_encode()}
-        )
+        batch = pa.record_batch({"category": pa.array(["a", "b", "a"]).dictionary_encode()})
         converter = ArrowModelConverter(ValidatedDictModel, validate=True)
         results = converter.convert(batch)
         assert len(results) == 3
@@ -1351,7 +1366,10 @@ class TestValidationErrors:
         with pytest.raises(Exception) as exc_info:
             converter.convert(batch)
         # Should be a Pydantic ValidationError
-        assert "validation" in type(exc_info.value).__name__.lower() or "validation" in str(exc_info.value).lower()
+        assert (
+            "validation" in type(exc_info.value).__name__.lower()
+            or "validation" in str(exc_info.value).lower()
+        )
 
     def test_validation_error_message(self) -> None:
         """VALID-03: ValidationError contains useful info about the failure."""
@@ -1369,8 +1387,14 @@ class TestIteratorAPI:
 
     def test_iter_record_batch(self) -> None:
         """API-04: iter() yields models from RecordBatch."""
-        batch = pa.record_batch({"id": [1, 2, 3], "name": ["a", "b", "c"],
-                                 "score": [1.0, 2.0, 3.0], "active": [True, False, True]})
+        batch = pa.record_batch(
+            {
+                "id": [1, 2, 3],
+                "name": ["a", "b", "c"],
+                "score": [1.0, 2.0, 3.0],
+                "active": [True, False, True],
+            }
+        )
         converter = ArrowModelConverter(MixedModel)
         results = list(converter.iter(batch))
         assert len(results) == 3
@@ -1380,10 +1404,10 @@ class TestIteratorAPI:
 
     def test_iter_table(self) -> None:
         """API-04: iter() yields models from Table (multi-batch)."""
-        batch1 = pa.record_batch({"id": [1, 2], "name": ["a", "b"],
-                                  "score": [1.0, 2.0], "active": [True, False]})
-        batch2 = pa.record_batch({"id": [3], "name": ["c"],
-                                  "score": [3.0], "active": [True]})
+        batch1 = pa.record_batch(
+            {"id": [1, 2], "name": ["a", "b"], "score": [1.0, 2.0], "active": [True, False]}
+        )
+        batch2 = pa.record_batch({"id": [3], "name": ["c"], "score": [3.0], "active": [True]})
         table = pa.Table.from_batches([batch1, batch2])
         converter = ArrowModelConverter(MixedModel)
         results = list(converter.iter(table))
@@ -1394,16 +1418,17 @@ class TestIteratorAPI:
     def test_iter_is_generator(self) -> None:
         """API-04: iter() returns a generator (lazy, not pre-materialized)."""
         import types
-        batch = pa.record_batch({"id": [1], "name": ["a"],
-                                 "score": [1.0], "active": [True]})
+
+        batch = pa.record_batch({"id": [1], "name": ["a"], "score": [1.0], "active": [True]})
         converter = ArrowModelConverter(MixedModel)
         result = converter.iter(batch)
         assert isinstance(result, types.GeneratorType)
 
     def test_iter_validated(self) -> None:
         """API-04: iter() respects validate=True flag."""
-        batch = pa.record_batch({"id": [1, 2], "name": ["a", "b"],
-                                 "score": [1.0, 2.0], "active": [True, False]})
+        batch = pa.record_batch(
+            {"id": [1, 2], "name": ["a", "b"], "score": [1.0, 2.0], "active": [True, False]}
+        )
         converter = ArrowModelConverter(MixedModel, validate=True)
         results = list(converter.iter(batch))
         assert len(results) == 2
@@ -1411,9 +1436,11 @@ class TestIteratorAPI:
 
     def test_iter_arrow_convenience(self) -> None:
         """API-04: iter_arrow() convenience function works."""
-        from arrowdantic import iter_arrow
-        batch = pa.record_batch({"id": [1, 2], "name": ["a", "b"],
-                                 "score": [1.0, 2.0], "active": [True, False]})
+        from arrowmodel import iter_arrow
+
+        batch = pa.record_batch(
+            {"id": [1, 2], "name": ["a", "b"], "score": [1.0, 2.0], "active": [True, False]}
+        )
         results = list(iter_arrow(MixedModel, batch))
         assert len(results) == 2
         assert results[0].id == 1
@@ -1421,9 +1448,11 @@ class TestIteratorAPI:
 
     def test_iter_arrow_validated(self) -> None:
         """DEBT-03: iter_arrow(validate=True) convenience wrapper works."""
-        from arrowdantic import iter_arrow
-        batch = pa.record_batch({"id": [1, 2], "name": ["a", "b"],
-                                 "score": [1.0, 2.0], "active": [True, False]})
+        from arrowmodel import iter_arrow
+
+        batch = pa.record_batch(
+            {"id": [1, 2], "name": ["a", "b"], "score": [1.0, 2.0], "active": [True, False]}
+        )
         results = list(iter_arrow(MixedModel, batch, validate=True))
         assert len(results) == 2
         assert results[0].id == 1
@@ -1432,10 +1461,14 @@ class TestIteratorAPI:
 
     def test_iter_empty_table(self) -> None:
         """API-04: iter() on empty Table yields nothing."""
-        table = pa.table({"id": pa.array([], type=pa.int64()),
-                          "name": pa.array([], type=pa.string()),
-                          "score": pa.array([], type=pa.float64()),
-                          "active": pa.array([], type=pa.bool_())})
+        table = pa.table(
+            {
+                "id": pa.array([], type=pa.int64()),
+                "name": pa.array([], type=pa.string()),
+                "score": pa.array([], type=pa.float64()),
+                "active": pa.array([], type=pa.bool_()),
+            }
+        )
         converter = ArrowModelConverter(MixedModel)
         results = list(converter.iter(table))
         assert results == []

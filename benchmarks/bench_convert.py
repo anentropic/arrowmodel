@@ -1,8 +1,12 @@
 """
-Benchmark: arrowdantic vs to_pylist() + model_construct.
+Benchmark: arrowmodel vs to_pylist() + model_construct.
 
-Both benchmarks start from the same pre-created RecordBatch.
-Only the conversion path is measured (not batch creation).
+Both benchmarks start from the same pre-created data.
+Only the conversion path is measured (not batch/table creation).
+
+Iteration counts are normalised so that each benchmark processes
+~TARGET_INSTANCES model instances regardless of row count, giving
+comparable wall-clock times across sizes.
 
 Usage:
     uv run python benchmarks/bench_convert.py 50 100 250 500 1000
@@ -11,16 +15,19 @@ Usage:
 
 from __future__ import annotations
 
+import datetime
 import sys
 import time
 
 import pyarrow as pa
 from pydantic import BaseModel
 
-from arrowdantic import ArrowModelConverter
+from arrowmodel import ArrowModelConverter
 
 DEFAULT_SIZES = [1000, 10_000, 100_000]
-ROUNDS = 500
+TARGET_INSTANCES = 500_000
+NESTING_DEPTH = 10
+TABLE_BATCHES = 10
 
 
 # ---------------------------------------------------------------------------
@@ -33,16 +40,31 @@ class BenchModel(BaseModel):
     name: str
     score: float
     active: bool
+    birthday: datetime.date
+    created_at: datetime.datetime
+    elapsed: datetime.timedelta
 
 
 def make_batch(n: int) -> pa.RecordBatch:
-    """Create a RecordBatch with n rows of mixed primitive types."""
+    """Create a RecordBatch with n rows of mixed primitive + temporal types."""
     return pa.record_batch(
         {
             "id": list(range(n)),
             "name": [f"item_{i}" for i in range(n)],
             "score": [float(i) * 0.1 for i in range(n)],
             "active": [i % 2 == 0 for i in range(n)],
+            "birthday": pa.array(
+                [datetime.date(1990, 1, 1) + datetime.timedelta(days=i % 10000) for i in range(n)],
+                type=pa.date32(),
+            ),
+            "created_at": pa.array(
+                [datetime.datetime(2024, 1, 1, 12, 0, 0) for _ in range(n)],
+                type=pa.timestamp("us"),
+            ),
+            "elapsed": pa.array(
+                [datetime.timedelta(seconds=i) for i in range(n)],
+                type=pa.duration("us"),
+            ),
         }
     )
 
@@ -221,13 +243,17 @@ def make_nested_batch(n: int) -> pa.RecordBatch:
 def _format_time(seconds: float) -> str:
     """Format a time duration as a human-readable string."""
     if seconds < 1e-3:
-        return f"{seconds * 1e6:.0f} \u00b5s"
+        return f"{seconds * 1e6:.0f} µs"
     return f"{seconds * 1e3:.1f} ms"
 
 
+def _print_row(rows: str, iters: str, t_ad: str, t_bl: str, speedup: str) -> None:
+    print(f"{rows:>8} | {iters:>6} | {t_ad:>14} | {t_bl:>14} | {speedup:>8}")
+
+
 def _print_header() -> None:
-    print(f"{'Rows':>8} | {'arrowdantic':>14} | {'to_pylist+mc':>14} | {'Speedup':>8}")
-    print(f"{'-' * 8}-+-{'-' * 14}-+-{'-' * 14}-+-{'-' * 8}")
+    _print_row("Rows", "Iters", "arrowmodel", "to_pylist+mc", "Speedup")
+    print(f"{'-' * 8}-+-{'-' * 6}-+-{'-' * 14}-+-{'-' * 14}-+-{'-' * 8}")
 
 
 def run_benchmark(sizes: list[int]) -> None:
@@ -236,7 +262,7 @@ def run_benchmark(sizes: list[int]) -> None:
     for n in sizes:
         batch = make_batch(n)
         converter = ArrowModelConverter(BenchModel)
-        rounds = max(10, ROUNDS // max(1, n // 1000))
+        iters = max(1, TARGET_INSTANCES // n)
 
         # warmup
         converter.convert(batch)
@@ -244,18 +270,18 @@ def run_benchmark(sizes: list[int]) -> None:
 
         # arrowdantic
         t0 = time.perf_counter()
-        for _ in range(rounds):
+        for _ in range(iters):
             converter.convert(batch)
-        t_ad = (time.perf_counter() - t0) / rounds
+        t_ad = (time.perf_counter() - t0) / iters
 
         # baseline
         t0 = time.perf_counter()
-        for _ in range(rounds):
+        for _ in range(iters):
             [BenchModel.model_construct(**row) for row in batch.to_pylist()]
-        t_bl = (time.perf_counter() - t0) / rounds
+        t_bl = (time.perf_counter() - t0) / iters
 
         speedup = t_bl / t_ad
-        print(f"{n:>8} | {_format_time(t_ad):>14} | {_format_time(t_bl):>14} | {speedup:>6.2f}x")
+        _print_row(str(n), str(iters), _format_time(t_ad), _format_time(t_bl), f"{speedup:.2f}x")
 
 
 def run_nested_benchmark(sizes: list[int]) -> None:
@@ -264,7 +290,7 @@ def run_nested_benchmark(sizes: list[int]) -> None:
     for n in sizes:
         batch = make_nested_batch(n)
         converter = ArrowModelConverter(NestedBenchModel)
-        rounds = max(10, ROUNDS // max(1, n // 1000))
+        iters = max(1, TARGET_INSTANCES // (n * NESTING_DEPTH))
 
         # warmup
         converter.convert(batch)
@@ -272,26 +298,64 @@ def run_nested_benchmark(sizes: list[int]) -> None:
 
         # arrowdantic
         t0 = time.perf_counter()
-        for _ in range(rounds):
+        for _ in range(iters):
             converter.convert(batch)
-        t_ad = (time.perf_counter() - t0) / rounds
+        t_ad = (time.perf_counter() - t0) / iters
 
         # baseline: model_construct only constructs top-level model (no recursive
         # construction of nested dicts). This is a known limitation -- the benchmark
         # still shows the cost difference of the full operation since in practice
         # users need the nested models too, which arrowdantic provides.
         t0 = time.perf_counter()
-        for _ in range(rounds):
+        for _ in range(iters):
             [NestedBenchModel.model_construct(**row) for row in batch.to_pylist()]
-        t_bl = (time.perf_counter() - t0) / rounds
+        t_bl = (time.perf_counter() - t0) / iters
 
         speedup = t_bl / t_ad
-        print(f"{n:>8} | {_format_time(t_ad):>14} | {_format_time(t_bl):>14} | {speedup:>6.2f}x")
+        _print_row(str(n), str(iters), _format_time(t_ad), _format_time(t_bl), f"{speedup:.2f}x")
+
+
+def run_table_benchmark(sizes: list[int]) -> None:
+    _print_header()
+
+    for n in sizes:
+        batches = [make_batch(n) for _ in range(TABLE_BATCHES)]
+        table = pa.Table.from_batches(batches)
+        total_rows = n * TABLE_BATCHES
+        converter = ArrowModelConverter(BenchModel)
+        iters = max(1, TARGET_INSTANCES // total_rows)
+
+        # warmup
+        converter.convert(table)
+        [BenchModel.model_construct(**row) for row in table.to_pylist()]
+
+        # arrowdantic
+        t0 = time.perf_counter()
+        for _ in range(iters):
+            converter.convert(table)
+        t_ad = (time.perf_counter() - t0) / iters
+
+        # baseline
+        t0 = time.perf_counter()
+        for _ in range(iters):
+            [BenchModel.model_construct(**row) for row in table.to_pylist()]
+        t_bl = (time.perf_counter() - t0) / iters
+
+        speedup = t_bl / t_ad
+        _print_row(
+            str(total_rows),
+            str(iters),
+            _format_time(t_ad),
+            _format_time(t_bl),
+            f"{speedup:.2f}x",
+        )
 
 
 if __name__ == "__main__":
     sizes = [int(arg) for arg in sys.argv[1:]] if len(sys.argv) > 1 else DEFAULT_SIZES
-    print("=== Flat Primitives ===\n")
+    print("=== Flat Primitives (RecordBatch) ===\n")
     run_benchmark(sizes)
     print("\n=== Nested (10-level struct + lists) ===\n")
     run_nested_benchmark(sizes)
+    print(f"\n=== Flat Primitives (Table, {TABLE_BATCHES} batches) ===\n")
+    run_table_benchmark(sizes)

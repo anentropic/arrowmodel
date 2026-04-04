@@ -114,6 +114,7 @@ Recent decisions affecting current work:
 - [Phase 06]: RunEndEncoded count is 5 not 6 in lib.rs: unpack_columns has 1 arm (not 2 as plan estimated)
 - [Phase 07]: Default validate=False on from_arrow preserves backward compatibility
 - [Phase 07]: Used C Data Interface export/re-import with format string override for IntervalYearMonth/DayTime arrays since pyarrow has no public constructors
+- [Quick 260404-1uo]: Used __pydantic_init_subclass__ instead of __init_subclass__ for ArrowModel converter creation (model_fields empty during __init_subclass__)
 
 ### Pending Todos
 
@@ -133,9 +134,10 @@ None yet.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260322-k1b | Add nested 10-level struct benchmark to bench_convert.py | 2026-03-22 | 4d85542 | [260322-k1b-update-benchmarks-bench-convert-py-with-](./quick/260322-k1b-update-benchmarks-bench-convert-py-with-/) |
+| 260404-1uo | ArrowModel base class with convert/iter classmethods | 2026-04-04 | 2d497aa | [260404-1uo-arrowmodel-base-class-with-convert-and-i](./quick/260404-1uo-arrowmodel-base-class-with-convert-and-i/) |
 
 ## Session Continuity
 
-Last session: 2026-03-22T21:50:25.514Z
-Last activity: 2026-03-22
+Last session: 2026-04-04T00:31:39Z
+Last activity: 2026-04-04
 Resume file: None

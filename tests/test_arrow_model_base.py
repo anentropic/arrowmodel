@@ -26,6 +26,10 @@ class AliasedModel(ArrowModel):
     display_name: str = Field(alias="dname")
 
 
+class AdminUser(SimpleUser):
+    role: str
+
+
 class TestArrowModel:
     """Tests for ArrowModel base class with convert/iter classmethods."""
 
@@ -149,6 +153,58 @@ class TestArrowModel:
         import arrowmodel
 
         assert "ArrowModel" in arrowmodel.__all__
+
+    def test_subclass_of_subclass_gets_own_converter(self) -> None:
+        """Sub-subclass gets its own converter, distinct from parent's."""
+        assert hasattr(AdminUser, "_arrow_converter")
+        assert isinstance(AdminUser._arrow_converter, ArrowModelConverter)
+        assert AdminUser._arrow_converter is not SimpleUser._arrow_converter
+
+    def test_subclass_of_subclass_convert(self) -> None:
+        """Sub-subclass.convert() returns instances of the sub-subclass."""
+        batch = pa.record_batch(
+            {
+                "id": pa.array([1, 2], type=pa.int64()),
+                "name": pa.array(["alice", "bob"]),
+                "score": pa.array([9.5, 8.0], type=pa.float64()),
+                "role": pa.array(["admin", "superadmin"]),
+            }
+        )
+        results = AdminUser.convert(batch)
+        assert len(results) == 2
+        assert all(isinstance(r, AdminUser) for r in results)
+        assert results[0].id == 1
+        assert results[0].name == "alice"
+        assert results[0].role == "admin"
+        assert results[1].role == "superadmin"
+
+    def test_subclass_of_subclass_iter(self) -> None:
+        """Sub-subclass.iter() yields instances of the sub-subclass."""
+        batch = pa.record_batch(
+            {
+                "id": pa.array([1], type=pa.int64()),
+                "name": pa.array(["alice"]),
+                "score": pa.array([9.5], type=pa.float64()),
+                "role": pa.array(["admin"]),
+            }
+        )
+        items = list(AdminUser.iter(batch))
+        assert len(items) == 1
+        assert isinstance(items[0], AdminUser)
+        assert items[0].role == "admin"
+
+    def test_subclass_of_subclass_does_not_affect_parent(self) -> None:
+        """Parent class still works independently after sub-subclass is defined."""
+        batch = pa.record_batch(
+            {
+                "id": pa.array([1], type=pa.int64()),
+                "name": pa.array(["alice"]),
+                "score": pa.array([9.5], type=pa.float64()),
+            }
+        )
+        results = SimpleUser.convert(batch)
+        assert len(results) == 1
+        assert type(results[0]) is SimpleUser
 
     def test_iter_validate_true(self) -> None:
         """iter(data, validate=True) uses the validated path."""

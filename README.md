@@ -82,6 +82,26 @@ for user in converter.iter(table):
 
 (Results are materialised a `RecordBatch` at a time - due to columnar nature of Arrow data this is the most efficient way to do it)
 
+### ArrowModel base class
+
+For the most concise API, subclass `ArrowModel` instead of `BaseModel`. The converter is created automatically at class definition time:
+
+```python
+from arrowmodel import ArrowModel
+
+
+class User(ArrowModel):
+    id: int
+    name: str
+    score: float
+
+
+users = User.convert(batch)
+
+for user in User.iter(table):
+    print(user)
+```
+
 ### Validated mode
 
 By default arrowmodel uses `model_construct` (no validation, maximum speed). Pass `validate=True` to run full Pydantic validation on each row:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import typing
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Self, cast
 
 from pydantic import AliasChoices, AliasPath, BaseModel
 
@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     import pyarrow as pa
 
 __all__ = [
+    "ArrowModel",
     "ArrowModelConverter",
     "model_convert",
     "model_iter",
@@ -228,6 +229,80 @@ class ArrowModelConverter:
             else:
                 results = _core.convert_record_batch(batch, self._model_class, field_specs)
             yield from results
+
+
+class ArrowModel(BaseModel):
+    """
+    Pydantic BaseModel subclass with Arrow conversion classmethods.
+
+    Subclasses auto-generate an ``ArrowModelConverter`` at class definition
+    time (via ``__init_subclass__``), so users can call
+    ``MyModel.convert(batch)`` without manually creating a converter.
+
+    Example::
+
+        class User(ArrowModel):
+            id: int
+            name: str
+
+        users: list[User] = User.convert(batch)
+
+    The fast path (``model_construct``, no validation) is used by default.
+    Pass ``validate=True`` to use the validated path
+    (``model_validate_json``).
+    """
+
+    _arrow_converter: ClassVar[ArrowModelConverter]
+    _arrow_converter_validated: ClassVar[ArrowModelConverter]
+
+    @classmethod
+    def __pydantic_init_subclass__(cls, **kwargs: Any) -> None:
+        super().__pydantic_init_subclass__(**kwargs)
+        # Only create converter for concrete subclasses that have fields.
+        # __pydantic_init_subclass__ runs after Pydantic's metaclass has
+        # populated model_fields, unlike __init_subclass__ which fires
+        # before field resolution.
+        if cls.model_fields:
+            cls._arrow_converter = ArrowModelConverter(cls, validate=False)
+
+    @classmethod
+    def convert(cls, data: pa.RecordBatch | pa.Table, *, validate: bool = False) -> list[Self]:
+        """
+        Convert Arrow RecordBatch or Table to a list of model instances.
+
+        Args:
+            data: Arrow RecordBatch or Table to convert.
+            validate: If True, use the validated path (model_validate_json).
+                Defaults to False (fast path via model_construct).
+
+        Returns:
+            List of model instances.
+        """
+        if validate:
+            if not hasattr(cls, "_arrow_converter_validated"):
+                cls._arrow_converter_validated = ArrowModelConverter(cls, validate=True)
+            return cls._arrow_converter_validated.convert(data)  # type: ignore[return-value]
+        return cls._arrow_converter.convert(data)  # type: ignore[return-value]
+
+    @classmethod
+    def iter(cls, data: pa.RecordBatch | pa.Table, *, validate: bool = False) -> Iterator[Self]:
+        """
+        Lazily yield individual model instances from Arrow data.
+
+        Args:
+            data: Arrow RecordBatch or Table to convert.
+            validate: If True, use the validated path (model_validate_json).
+                Defaults to False (fast path via model_construct).
+
+        Yields:
+            Model instances one at a time.
+        """
+        if validate:
+            if not hasattr(cls, "_arrow_converter_validated"):
+                cls._arrow_converter_validated = ArrowModelConverter(cls, validate=True)
+            yield from cls._arrow_converter_validated.iter(data)  # type: ignore[misc]
+        else:
+            yield from cls._arrow_converter.iter(data)  # type: ignore[misc]
 
 
 def model_convert(

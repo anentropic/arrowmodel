@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import types
 import typing
 from typing import TYPE_CHECKING, Any, ClassVar, Self, cast
 
@@ -41,7 +42,7 @@ def _get_nested_model(annotation: Any) -> type[BaseModel] | None:
         return annotation
     # Optional[NestedModel] = Union[NestedModel, None]
     origin = typing.get_origin(annotation)
-    if origin is typing.Union:
+    if origin is typing.Union or origin is types.UnionType:
         args = typing.get_args(annotation)
         for arg in args:
             if isinstance(arg, type) and issubclass(arg, BaseModel):

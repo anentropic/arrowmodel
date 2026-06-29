@@ -12,20 +12,20 @@ dependencies = [
 ]
 
 [build-system]
-requires = ["maturin>=1.13.1,<2.0"]
+requires = ["maturin>=1.14.1,<2.0"]
 build-backend = "maturin"
 
 [dependency-groups]
 dev = [
-    "basedpyright>=1.39.3",
-    "ipython>=9.13.0",
+    "basedpyright>=1.39.9",
+    "ipython>=9.15.0",
     "pdbpp>=0.12.0.post1",
     "pyarrow>=24.0.0",
-    "pyarrow-stubs>=20.0.0.20251215",
-    "pytest>=9.0.3",
+    "pyarrow-stubs>=20.0.0.20260625",
+    "pytest>=9.1.1",
     "pytest-benchmark>=5.2.3",
     "pytest-cov>=6.0.0",
-    "ruff>=0.15.12",
+    "ruff>=0.15.20",
 ]
 docs = [
     "mkdocs>=1.6.0",

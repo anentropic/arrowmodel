@@ -121,7 +121,7 @@ Plans:
 **Goal:** Close all tech debt from milestone audit: add missing test coverage for interval subtypes, validated path tests for 7 types, and add `validate` parameter to `from_arrow()` for API symmetry
 **Depends on:** Phase 6
 **Requirements**: DEBT-01, DEBT-02, DEBT-03, DEBT-04
-**Gap Closure:** Closes tech debt from v1.0 milestone audit
+**Gap Closure:** Closes tech debt from v1.0.0 milestone audit
 **Plans:** 2 plans
 
 Plans:

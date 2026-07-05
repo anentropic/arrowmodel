@@ -45,7 +45,7 @@ Dict-free, single-step conversion from Arrow buffers to Pydantic model instances
 
 ### Active
 
-(No active requirements — v1.0 milestone complete)
+(No active requirements — v1.0.0 milestone complete)
 
 ### Out of Scope
 

@@ -136,7 +136,7 @@ None yet.
 |---|-------------|------|--------|-----------|
 | 260322-k1b | Add nested 10-level struct benchmark to bench_convert.py | 2026-03-22 | 4d85542 | [260322-k1b-update-benchmarks-bench-convert-py-with-](./quick/260322-k1b-update-benchmarks-bench-convert-py-with-/) |
 | 260404-1uo | ArrowModel base class with convert/iter classmethods | 2026-04-04 | 2d497aa | [260404-1uo-arrowmodel-base-class-with-convert-and-i](./quick/260404-1uo-arrowmodel-base-class-with-convert-and-i/) |
-| 260705-ti7 | Complete package rename arrowdantic → arrowmodel (remaining references and filenames) | 2026-07-05 | e0b7f30 | [260705-ti7-complete-package-rename-arrowdantic-to-a](./quick/260705-ti7-complete-package-rename-arrowdantic-to-a/) |
+| 260705-ti7 | Complete package rename arrowdantic → arrowmodel (remaining references and filenames) | 2026-07-05 | f78b972 | [260705-ti7-complete-package-rename-arrowdantic-to-a](./quick/260705-ti7-complete-package-rename-arrowdantic-to-a/) |
 
 ## Session Continuity
 

@@ -268,7 +268,7 @@ def run_benchmark(sizes: list[int]) -> None:
         converter.convert(batch)
         [BenchModel.model_construct(**row) for row in batch.to_pylist()]
 
-        # arrowdantic
+        # arrowmodel
         t0 = time.perf_counter()
         for _ in range(iters):
             converter.convert(batch)
@@ -296,7 +296,7 @@ def run_nested_benchmark(sizes: list[int]) -> None:
         converter.convert(batch)
         [NestedBenchModel.model_construct(**row) for row in batch.to_pylist()]
 
-        # arrowdantic
+        # arrowmodel
         t0 = time.perf_counter()
         for _ in range(iters):
             converter.convert(batch)
@@ -305,7 +305,7 @@ def run_nested_benchmark(sizes: list[int]) -> None:
         # baseline: model_construct only constructs top-level model (no recursive
         # construction of nested dicts). This is a known limitation -- the benchmark
         # still shows the cost difference of the full operation since in practice
-        # users need the nested models too, which arrowdantic provides.
+        # users need the nested models too, which arrowmodel provides.
         t0 = time.perf_counter()
         for _ in range(iters):
             [NestedBenchModel.model_construct(**row) for row in batch.to_pylist()]
@@ -329,7 +329,7 @@ def run_table_benchmark(sizes: list[int]) -> None:
         converter.convert(table)
         [BenchModel.model_construct(**row) for row in table.to_pylist()]
 
-        # arrowdantic
+        # arrowmodel
         t0 = time.perf_counter()
         for _ in range(iters):
             converter.convert(table)

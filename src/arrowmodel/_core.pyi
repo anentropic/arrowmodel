@@ -1,4 +1,4 @@
-"""Type stubs for the arrowdantic._core Rust extension module."""
+"""Type stubs for the arrowmodel._core Rust extension module."""
 
 from collections.abc import Sequence
 from typing import Any

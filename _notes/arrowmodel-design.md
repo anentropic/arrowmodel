@@ -22,7 +22,7 @@ materialises the full dataset as Python dicts, allocating heap objects that are 
 discarded once Pydantic consumes them. For large batches this is significant unnecessary
 allocation pressure.
 
-`arrowdantic` collapses this to:
+`arrowmodel` collapses this to:
 
 ```
 Arrow buffer → [Model, Model, …]
@@ -61,7 +61,7 @@ instances are constructed via PyO3 without any intermediate dict.
 ### Crate / Package Layout
 
 ```
-arrowdantic/
+arrowmodel/
 ├── src/
 │   ├── lib.rs           — PyO3 module entry point
 │   ├── converter.rs     — ArrowModelConverter pyclass
@@ -69,7 +69,7 @@ arrowdantic/
 │   ├── handlers.rs      — TypeHandler enum and per-type extract() impls
 │   └── ffi.rs           — Arrow C Data Interface glue (via pyo3-arrow)
 ├── python/
-│   └── arrowdantic/
+│   └── arrowmodel/
 │       ├── __init__.py  — public API, alias resolution helper
 │       └── _core.pyi    — type stubs for the Rust extension
 ├── tests/
@@ -131,7 +131,7 @@ Schema cross-referencing happens entirely in Python (where `model_fields` is eas
 introspect) and the resulting field map is passed into Rust:
 
 ```python
-# python/arrowdantic/__init__.py
+# python/arrowmodel/__init__.py
 
 
 def _build_field_map(model_cls) -> dict[str, str]:
@@ -296,7 +296,7 @@ internally.
 ## Public Python API
 
 ```python
-from arrowdantic import ArrowModelConverter
+from arrowmodel import ArrowModelConverter
 
 # Construction — schema cross-referencing happens here
 converter = ArrowModelConverter(
@@ -308,7 +308,7 @@ converter = ArrowModelConverter(
 models: list[MyModel] = converter.convert(record_batch)
 
 # Convenience one-shot function for ad-hoc use
-from arrowdantic import from_arrow
+from arrowmodel import from_arrow
 
 models = from_arrow(MyModel, record_batch)
 ```

@@ -1,4 +1,4 @@
-# arrowdantic
+# arrowmodel
 
 ## What This Is
 
@@ -12,7 +12,7 @@ Dict-free, single-step conversion from Arrow buffers to Pydantic model instances
 
 ### Validated
 
-- ✓ Rust/PyO3 extension module built with maturin, importable as `arrowdantic._core` — Phase 1
+- ✓ Rust/PyO3 extension module built with maturin, importable as `arrowmodel._core` — Phase 1
 - ✓ Arrow C Data Interface for zero-copy buffer handoff (via `pyo3-arrow`) — Phase 1
 - ✓ `ArrowModelConverter` class that cross-references Arrow schema against Pydantic model fields at construction time — Phase 2
 - ✓ Schema cross-referencing compiled once at converter init, not per batch — Phase 2
@@ -63,7 +63,7 @@ Dict-free, single-step conversion from Arrow buffers to Pydantic model instances
 - **Arrow C Data Interface** is the interop standard — two raw pointers (`ArrowArray*`, `ArrowSchema*`) passed across the FFI boundary. The `pyo3-arrow` crate wraps this for PyO3.
 - **`model_construct`** bypasses pydantic-core validation entirely — correct for trusted Arrow pipelines. The validated path uses `serde_json` → `validate_json` to keep validation in Rust (pydantic-core's `jiter` + `SchemaValidator`).
 - Arrow stores nulls as a separate validity bitmap, not sentinel values. The value buffer at null indices is undefined and must not be read.
-- The conventional path (`to_pylist()` + Model construction) materialises the full dataset as Python dicts — significant allocation pressure for large batches that arrowdantic eliminates.
+- The conventional path (`to_pylist()` + Model construction) materialises the full dataset as Python dicts — significant allocation pressure for large batches that arrowmodel eliminates.
 - Primary comparison target: `to_pylist()` + `model_construct()` in a Python loop (what a careful user writes today).
 
 ## Constraints

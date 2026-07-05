@@ -118,8 +118,9 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-1. **Rename package — arrowdantic name taken** (general) — choose new name, rename across all files
-2. **Explore schema-model bridge ecosystem** (general) — research Patito/Poldantic/Pandera/pydantic-to-pyarrow, design Arrow↔Pydantic schema bridge
+1. **Explore schema-model bridge ecosystem** (general) — research Patito/Poldantic/Pandera/pydantic-to-pyarrow, design Arrow↔Pydantic schema bridge
+
+_(Resolved: "Rename package — arrowdantic name taken" — completed in quick task 260705-ti7; new name is `arrowmodel`.)_
 
 ### Blockers/Concerns
 
@@ -135,9 +136,10 @@ None yet.
 |---|-------------|------|--------|-----------|
 | 260322-k1b | Add nested 10-level struct benchmark to bench_convert.py | 2026-03-22 | 4d85542 | [260322-k1b-update-benchmarks-bench-convert-py-with-](./quick/260322-k1b-update-benchmarks-bench-convert-py-with-/) |
 | 260404-1uo | ArrowModel base class with convert/iter classmethods | 2026-04-04 | 2d497aa | [260404-1uo-arrowmodel-base-class-with-convert-and-i](./quick/260404-1uo-arrowmodel-base-class-with-convert-and-i/) |
+| 260705-ti7 | Complete package rename arrowdantic → arrowmodel (remaining references and filenames) | 2026-07-05 | e0b7f30 | [260705-ti7-complete-package-rename-arrowdantic-to-a](./quick/260705-ti7-complete-package-rename-arrowdantic-to-a/) |
 
 ## Session Continuity
 
 Last session: 2026-04-04T00:31:39Z
-Last activity: 2026-04-04
+Last activity: 2026-07-05 - Completed quick task 260705-ti7: finished arrowdantic → arrowmodel rename
 Resume file: None

@@ -237,7 +237,7 @@ class ArrowModel(BaseModel):
     Pydantic BaseModel subclass with Arrow conversion classmethods.
 
     Subclasses auto-generate an ``ArrowModelConverter`` at class definition
-    time (via ``__init_subclass__``), so users can call
+    time (via ``__pydantic_init_subclass__``), so users can call
     ``MyModel.convert(batch)`` without manually creating a converter.
 
     Example::

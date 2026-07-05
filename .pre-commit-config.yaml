@@ -1,5 +1,5 @@
 
-exclude: ^\.planning/
+exclude: ^(\.planning|\.doc-writer)/
 repos:
   - repo: builtin
     hooks:

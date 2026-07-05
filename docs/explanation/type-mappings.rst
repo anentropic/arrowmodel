@@ -1,0 +1,386 @@
+.. meta::
+   :description: Complete mapping of Arrow data types to Python types that arrowmodel produces, including temporal, binary, nested, and container types.
+
+.. _explanation-type-mappings:
+
+Arrow Type Mappings
+====================
+
+When arrowmodel extracts values from Arrow columns, each Arrow data type
+maps to a specific Python type. This page is the definitive reference for
+those mappings -- consult it when you need to know what Python type a given
+Arrow column will produce in your Pydantic model.
+
+Integer types
+-------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 40 20
+
+   * - Arrow Type
+     - Python Type
+     - Notes
+   * - ``Int8``
+     - ``int``
+     -
+   * - ``Int16``
+     - ``int``
+     -
+   * - ``Int32``
+     - ``int``
+     -
+   * - ``Int64``
+     - ``int``
+     -
+   * - ``UInt8``
+     - ``int``
+     -
+   * - ``UInt16``
+     - ``int``
+     -
+   * - ``UInt32``
+     - ``int``
+     -
+   * - ``UInt64``
+     - ``int``
+     -
+
+All Arrow integer types produce Python ``int``. There is no overflow risk
+since Python integers are arbitrary-precision.
+
+Float types
+-----------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 40 20
+
+   * - Arrow Type
+     - Python Type
+     - Notes
+   * - ``Float16``
+     - ``float``
+     - Half-precision, widened to 64-bit
+   * - ``Float32``
+     - ``float``
+     - Single-precision, widened to 64-bit
+   * - ``Float64``
+     - ``float``
+     -
+
+All float types produce Python ``float`` (64-bit). ``Float16`` and ``Float32``
+values are widened, which may introduce small floating-point representation
+differences.
+
+Decimal types
+-------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 40 20
+
+   * - Arrow Type
+     - Python Type
+     - Notes
+   * - ``Decimal32(precision, scale)``
+     - ``decimal.Decimal``
+     - Full precision preserved
+   * - ``Decimal64(precision, scale)``
+     - ``decimal.Decimal``
+     - Full precision preserved
+   * - ``Decimal128(precision, scale)``
+     - ``decimal.Decimal``
+     - Up to 38 digits
+   * - ``Decimal256(precision, scale)``
+     - ``decimal.Decimal``
+     - Up to 76 digits
+
+Decimal values are converted to ``decimal.Decimal`` with full precision -- no
+intermediate float conversion that would lose significant digits.
+
+Boolean and string types
+------------------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 40 20
+
+   * - Arrow Type
+     - Python Type
+     - Notes
+   * - ``Boolean``
+     - ``bool``
+     - Exactly ``True`` or ``False``
+   * - ``Utf8``
+     - ``str``
+     -
+   * - ``LargeUtf8``
+     - ``str``
+     -
+   * - ``Utf8View``
+     - ``str``
+     -
+
+Date and time types
+--------------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 40 20
+
+   * - Arrow Type
+     - Python Type
+     - Notes
+   * - ``Date32``
+     - ``datetime.date``
+     - Days since epoch
+   * - ``Date64``
+     - ``datetime.datetime``
+     - Milliseconds since epoch
+   * - ``Time32(second)``
+     - ``datetime.time``
+     -
+   * - ``Time32(millisecond)``
+     - ``datetime.time``
+     - Milliseconds as microseconds
+   * - ``Time64(microsecond)``
+     - ``datetime.time``
+     -
+   * - ``Time64(nanosecond)``
+     - ``datetime.time``
+     - Nanoseconds truncated to microseconds
+
+.. note::
+
+   ``Date32`` produces ``datetime.date`` while ``Date64`` produces
+   ``datetime.datetime``. This follows Arrow's own semantics: Date32 stores
+   days, Date64 stores milliseconds (with time component).
+
+Timestamp types
+----------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 40 20
+
+   * - Arrow Type
+     - Python Type
+     - Notes
+   * - ``Timestamp(s, None)``
+     - ``datetime.datetime`` (naive)
+     -
+   * - ``Timestamp(ms, None)``
+     - ``datetime.datetime`` (naive)
+     -
+   * - ``Timestamp(us, None)``
+     - ``datetime.datetime`` (naive)
+     -
+   * - ``Timestamp(ns, None)``
+     - ``datetime.datetime`` (naive)
+     - Nanoseconds truncated to microseconds
+   * - ``Timestamp(*, tz)``
+     - ``datetime.datetime`` (aware)
+     - ``tzinfo`` set via ``ZoneInfo``
+
+Timezone-aware timestamps use Python's ``ZoneInfo`` for the timezone. IANA
+timezone strings (like ``"America/New_York"``) are preserved.
+
+.. warning::
+
+   Nanosecond-precision timestamps are truncated to microsecond precision
+   because Python's ``datetime`` only supports microseconds. Nanoseconds are
+   silently dropped, not rounded.
+
+Duration type
+-------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 40 20
+
+   * - Arrow Type
+     - Python Type
+     - Notes
+   * - ``Duration(s|ms|us|ns)``
+     - ``datetime.timedelta``
+     - All units converted to timedelta
+
+Binary types
+------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 40 20
+
+   * - Arrow Type
+     - Python Type
+     - Notes
+   * - ``Binary``
+     - ``bytes``
+     -
+   * - ``LargeBinary``
+     - ``bytes``
+     -
+   * - ``FixedSizeBinary(n)``
+     - ``bytes``
+     - Length ``n``
+   * - ``BinaryView``
+     - ``bytes``
+     -
+
+.. note::
+
+   In validated mode (``validate=True``), binary data is serialised as
+   base64-encoded strings in the JSON intermediate. Pydantic's
+   ``model_validate_json`` decodes base64 back to raw ``bytes`` when the
+   field type is ``bytes``, so the model field receives the correct raw
+   binary in both paths.
+
+List and container types
+------------------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 40 20
+
+   * - Arrow Type
+     - Python Type
+     - Notes
+   * - ``List(T)``
+     - ``list``
+     - Elements mapped recursively
+   * - ``LargeList(T)``
+     - ``list``
+     - Same as ``List``
+   * - ``FixedSizeList(T, n)``
+     - ``list``
+     - Always ``n`` elements
+   * - ``Map(K, V)``
+     - ``list[tuple[K, V]]``
+     - List of key-value pairs
+
+Nested list types (``List(List(Int64))``) produce nested Python lists
+(``list[list[int]]``).
+
+Struct type
+-----------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 40 20
+
+   * - Arrow Type
+     - Python Type
+     - Notes
+   * - ``Struct({fields})``
+     - Nested ``BaseModel`` instance
+     - See :ref:`how-to-convert-nested-models`
+
+A ``Struct`` column is converted to a nested Pydantic model when the
+corresponding field is annotated as a ``BaseModel`` subclass. A null struct
+produces ``None``.
+
+Dictionary-encoded columns
+--------------------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 40 20
+
+   * - Arrow Type
+     - Python Type
+     - Notes
+   * - ``Dictionary(index, value)``
+     - Same as ``value`` type
+     - Transparent decoding
+
+Dictionary-encoded columns are transparently decoded. A
+``Dictionary(Int32, Utf8)`` column produces ``str`` values, the same as a
+plain ``Utf8`` column.
+
+Interval types
+--------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 40 20
+
+   * - Arrow Type
+     - Python Type
+     - Notes
+   * - ``Interval(YearMonth)``
+     - ``tuple[int, int, int]``
+     - ``(months, 0, 0)``
+   * - ``Interval(DayTime)``
+     - ``tuple[int, int, int]``
+     - ``(0, days, nanos)``
+   * - ``Interval(MonthDayNano)``
+     - ``tuple[int, int, int]``
+     - ``(months, days, nanos)``
+
+All interval types are normalised to a 3-tuple of ``(months, days, nanoseconds)``
+for a consistent representation.
+
+Union types
+-----------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 40 20
+
+   * - Arrow Type
+     - Python Type
+     - Notes
+   * - ``SparseUnion``
+     - Value from active child
+     - Type varies per row
+   * - ``DenseUnion``
+     - Value from active child
+     - Type varies per row
+
+Union columns produce the Python value from the active child array for each
+row. Use a Pydantic ``Union`` annotation (e.g., ``int | str``) to accept the
+varying types.
+
+Run-end encoded columns
+-----------------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 40 20
+
+   * - Arrow Type
+     - Python Type
+     - Notes
+   * - ``RunEndEncoded``
+     - Same as value type
+     - Transparent decoding
+
+Run-end encoded columns are transparently unpacked before extraction. A
+run-end encoded ``Utf8`` column produces ``str`` values.
+
+Null type
+---------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 40 20
+
+   * - Arrow Type
+     - Python Type
+     - Notes
+   * - ``Null``
+     - ``None``
+     - Every row is ``None``
+
+Null handling
+-------------
+
+For any nullable column (regardless of type), a null value produces ``None``
+in the model instance. The corresponding Pydantic field should be typed as
+``Optional`` (e.g., ``str | None = None``) to accept the ``None`` value.
+
+Fields with default values that are missing from the Arrow schema use their
+Pydantic default. Required fields that are missing from the Arrow schema
+raise ``ValueError`` at conversion time.

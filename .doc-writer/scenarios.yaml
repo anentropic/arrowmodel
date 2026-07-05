@@ -1,0 +1,48 @@
+version: 1
+user_personas:
+  - name: "Python backend engineers"
+    skill_level: "intermediate-advanced"
+    generated_at: "2026-04-04"
+    doc_pages:
+      - "docs/index.rst"
+      - "docs/tutorials/index.rst"
+      - "docs/tutorials/getting-started.rst"
+      - "docs/how-to/index.rst"
+      - "docs/how-to/choose-api-style.rst"
+      - "docs/how-to/use-validated-mode.rst"
+      - "docs/how-to/work-with-aliases.rst"
+      - "docs/how-to/convert-nested-models.rst"
+      - "docs/how-to/iterate-large-datasets.rst"
+      - "docs/how-to/integrate-fastapi.rst"
+      - "docs/how-to/use-with-poldantic.rst"
+      - "docs/how-to/use-with-pandera.rst"
+      - "docs/explanation/index.rst"
+      - "docs/explanation/fast-vs-validated.rst"
+      - "docs/explanation/type-mappings.rst"
+      - "docs/reference/index.rst"
+    scenarios:
+      - id: S1
+        goal: "I want to install arrowmodel and convert an ADBC query result into Pydantic models for a FastAPI endpoint"
+        starting_point: "docs/index.rst"
+        persona_relevance: "This is the core discovery-to-first-use journey -- I hit the to_pylist() bottleneck, found this library, and need to get it working in my FastAPI+ADBC stack"
+        done_when: "I have a working mental model of how to install arrowmodel, define a model, and wire it into a FastAPI endpoint returning ADBC query results as JSON"
+      - id: S2
+        goal: "I want to understand which Arrow types map to which Python types so I can define my Pydantic model fields correctly for a complex schema with timestamps, decimals, and nested structs"
+        starting_point: "docs/index.rst"
+        persona_relevance: "My production database schema has timestamps, decimal prices, and nested address structs -- I need to know what Python types to annotate on my model fields"
+        done_when: "I can look up any Arrow type and know exactly what Python type my Pydantic field should be annotated with, including temporal types, decimals, and structs"
+      - id: S3
+        goal: "I want to handle Pydantic aliases because my database returns camelCase column names but my Python models use snake_case fields"
+        starting_point: "docs/index.rst"
+        persona_relevance: "This is an extremely common real-world scenario -- database columns often use different naming conventions than Python code, and I need alias resolution to bridge the gap"
+        done_when: "I know how to configure validation_alias or alias on my model fields so arrowmodel maps camelCase Arrow columns to snake_case Pydantic fields, and I know what alias types are not supported"
+      - id: S4
+        goal: "I want to look up the complete API signature for ArrowModelConverter including all parameters, methods, and return types"
+        starting_point: "docs/index.rst"
+        persona_relevance: "When integrating a library into production code, I need precise reference documentation -- parameter names, types, defaults, exceptions raised -- not just examples"
+        done_when: "I have found a reference page with the full constructor signature, method signatures, parameter descriptions, and return types for ArrowModelConverter"
+      - id: S5
+        goal: "I want to stream large Arrow query results through a FastAPI endpoint without loading all rows into memory at once"
+        starting_point: "docs/index.rst"
+        persona_relevance: "Production APIs sometimes need to export large datasets -- I need to know how to combine lazy iteration with FastAPI's StreamingResponse"
+        done_when: "I have a clear pattern for using iter() with FastAPI StreamingResponse to stream NDJSON from a large Arrow Table"

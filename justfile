@@ -16,8 +16,11 @@ setup-agent-cli agent="claude":
 
 # Build the docs site (strict mode)
 docs-build:
-    uv run mkdocs build --strict
+    uv run --group docs sphinx-build -W -b html docs docs/_build/html
 
-# Serve the docs dev server (default port 8000)
+# Serve the docs dev server with live reload (default port 8000)
 docs-serve port="8000":
-    uv run mkdocs serve --dev-addr 127.0.0.1:{{port}} --livereload
+    uv run --group docs sphinx-autobuild docs docs/_build/html --port {{port}} --open-browser
+
+test:
+    uv run pytest -v

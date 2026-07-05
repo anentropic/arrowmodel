@@ -28,12 +28,13 @@ dev = [
     "ruff>=0.15.1",
 ]
 docs = [
-    "mkdocs>=1.6.0",
-    "mkdocs-material>=9.7.0",
-    "mkdocstrings[python]>=0.26.0",
-    "mkdocs-gen-files>=0.5.0",
-    "mkdocs-literate-nav>=0.6.0",
-    "mkdocs-section-index>=0.3.0",
+    "sphinx>=8.0",
+    "shibuya>=2025.1",
+    "sphinx-autoapi>=3.4",
+    "sphinx-copybutton>=0.5",
+    "sphinx-design>=0.6",
+    "sphinx-autobuild>=2024.10",
+    "sphinxcontrib-mermaid>=1.0",
 ]
 
 [tool.pyright]

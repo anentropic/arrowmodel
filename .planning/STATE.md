@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: milestone
-status: unknown
-last_updated: "2026-04-04T00:31:44.469Z"
-last_activity: 2026-03-22
+status: Awaiting next milestone
+last_updated: "2026-07-05T22:43:45.032Z"
+last_activity: 2026-07-05 — Milestone v1.0.0 completed and archived
 progress:
   total_phases: 7
   completed_phases: 7
   total_plans: 16
   completed_plans: 16
+  percent: 100
 ---
 
 # Project State
@@ -23,8 +24,10 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 
 ## Current Position
 
-Phase: 07
-Plan: Not started
+Phase: Milestone v1.0.0 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-05 — Milestone v1.0.0 completed and archived
 
 ## Performance Metrics
 
@@ -138,8 +141,22 @@ None yet.
 | 260404-1uo | ArrowModel base class with convert/iter classmethods | 2026-04-04 | 2d497aa | [260404-1uo-arrowmodel-base-class-with-convert-and-i](./quick/260404-1uo-arrowmodel-base-class-with-convert-and-i/) |
 | 260705-ti7 | Complete package rename arrowdantic → arrowmodel (remaining references and filenames) | 2026-07-05 | f78b972 | [260705-ti7-complete-package-rename-arrowdantic-to-a](./quick/260705-ti7-complete-package-rename-arrowdantic-to-a/) |
 
+## Deferred Items
+
+Items acknowledged and deferred at v1.0.0 milestone close on 2026-07-05:
+
+| Category | Item | Status |
+|----------|------|--------|
+| todo | explore-schema-model-bridge-ecosystem | pending (future-milestone research idea; not v1.0.0 scope) |
+
+Note: the two quick tasks flagged by the pre-close audit (260322-k1b, 260404-1uo) are already complete — see the Quick Tasks Completed table. They were flagged only because their older SUMMARY.md files predate the `status:` frontmatter convention.
+
 ## Session Continuity
 
 Last session: 2026-04-04T00:31:39Z
-Last activity: 2026-07-05 - Completed quick task 260705-ti7: finished arrowdantic → arrowmodel rename
+Last activity: 2026-07-05
 Resume file: None
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone

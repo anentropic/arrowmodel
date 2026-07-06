@@ -1,5 +1,18 @@
 # arrowmodel
 
+## Current State
+
+**Shipped: v1.0.0 "Core Library" (2026-07-05).** The complete Arrow→Pydantic
+conversion engine: full Arrow DataType coverage, alias resolution, fast
+(`model_construct`) and validated (`model_validate_json`) paths, a lazy
+iterator API, and type stubs. 193 tests passing; docs build clean (sphinx,
+strict). Package versioned at 1.0.0 and release-ready.
+
+**Next milestone candidate:** the schema-model bridge exploration — deriving
+Pydantic models from Arrow schemas (and vice versa), and how arrowmodel relates
+to Patito/Poldantic/Pandera/pydantic-to-pyarrow. Deferred idea, not yet scoped;
+define via `/gsd-new-milestone`.
+
 ## What This Is
 
 A Python library with a Rust core (via PyO3/maturin) that converts Apache Arrow `RecordBatch` and `Table` objects directly into lists of Pydantic v2 model instances. It eliminates the intermediate Python dict representation that arises from `to_pylist()` + Pydantic construction, replacing a two-step materialisation with a single tight Rust loop over Arrow buffers accessed via the Arrow C Data Interface.
@@ -65,6 +78,7 @@ Dict-free, single-step conversion from Arrow buffers to Pydantic model instances
 - Arrow stores nulls as a separate validity bitmap, not sentinel values. The value buffer at null indices is undefined and must not be read.
 - The conventional path (`to_pylist()` + Model construction) materialises the full dataset as Python dicts — significant allocation pressure for large batches that arrowmodel eliminates.
 - Primary comparison target: `to_pylist()` + `model_construct()` in a Python loop (what a careful user writes today).
+- **As shipped in v1.0.0:** 193 tests passing; ~1.7x faster than `to_pylist()` + `model_construct` at 100k rows; full Arrow DataType coverage across both conversion paths; docs migrated to sphinx (Diataxis structure). Package renamed from `arrowdantic` (name taken on PyPI) to `arrowmodel`; version 1.0.0.
 
 ## Constraints
 
@@ -85,6 +99,11 @@ Dict-free, single-step conversion from Arrow buffers to Pydantic model instances
 | Pre-intern Python field name strings | Eliminates per-row string allocation in the hot loop | Validated Phase 3 |
 | Alias resolution in Python, not Rust | Pydantic's `model_fields`/`FieldInfo` trivially introspectable in Python; no Pydantic logic recreation needed | Validated Phase 3 |
 | Schema validation at convert() time, not init | No Arrow schema available at init; each batch may have different column order | Validated Phase 3 |
+| Interval types → (months, days, nanos) i64 tuple | Uniform shape across all 3 Arrow interval variants | Validated Phase 6 |
+| Union dispatch via `offsets()` presence | Distinguishes sparse vs dense unions without extra metadata | Validated Phase 6 |
+| RunEndEncoded pre-unpacked like Dictionary | Reuses the existing unpack path; avoids per-row REE decoding in the hot loop | Validated Phase 6 |
+| `from_arrow(validate=False)` default | Preserves fast-path backward compatibility while adding validated-path symmetry | Validated Phase 7 |
+| Rename package `arrowdantic` → `arrowmodel` | Original name taken on PyPI | Done (quick task 260705-ti7) |
 
 ## Evolution
 
@@ -104,4 +123,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-22 after Phase 7 completion (tech debt closed, 178 tests, full API symmetry)*
+*Last updated: 2026-07-05 after v1.0.0 "Core Library" milestone (shipped, renamed to arrowmodel, version 1.0.0, 193 tests)*

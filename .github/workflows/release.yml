@@ -1,4 +1,3 @@
-
 name: Release
 
 on:
@@ -14,8 +13,46 @@ jobs:
   quality:
     uses: ./.github/workflows/quality.yml
 
-  build:
-    name: Build distributions
+  build-wheels:
+    # One abi3 wheel per platform (works on CPython >= 3.11 thanks to the
+    # abi3-py311 feature), built with maturin-action so linux uses manylinux
+    # containers and macOS/Windows build natively. maturin auto-detects abi3
+    # from the crate's pyo3 features, so no per-interpreter loop is needed.
+    name: Wheel ${{ matrix.platform.runner }} ${{ matrix.platform.target }}
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { runner: ubuntu-latest, target: x86_64 }
+          - { runner: ubuntu-latest, target: aarch64 }
+          - { runner: macos-13, target: x86_64 }
+          - { runner: macos-14, target: aarch64 }
+          - { runner: windows-latest, target: x64 }
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Build wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: --release --out dist
+          manylinux: auto
+          sccache: "true"
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist-wheel-${{ matrix.platform.runner }}-${{ matrix.platform.target }}
+          path: dist/*.whl
+          retention-days: 7
+
+  sdist:
+    name: Build sdist
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -24,27 +61,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v7
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
         with:
-          enable-cache: true
+          command: sdist
+          args: --out dist
 
-      - name: Sync dependencies
-        run: uv sync --locked --dev
-
-      - name: Build wheel and sdist
-        run: uv build
-
-      - name: Upload distributions
+      - name: Upload sdist
         uses: actions/upload-artifact@v7
         with:
-          name: dist
-          path: dist/
+          name: dist-sdist
+          path: dist/*.tar.gz
           retention-days: 7
 
   validate:
     name: Validate distributions
-    needs: [build]
+    needs: [build-wheels, sdist]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
@@ -60,28 +92,35 @@ jobs:
       - name: Download distributions
         uses: actions/download-artifact@v8
         with:
-          name: dist
-          path: dist/
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
 
-      - name: Test wheel installation
+      - name: Test wheel installation (abi3 wheel resolves for this Python)
         run: |
           uv venv --python ${{ matrix.python-version }} test-env-wheel
-          uv pip install --python test-env-wheel/bin/python dist/*.whl
+          # Resolve by name from the local dir so the installer picks the wheel
+          # matching this runner's platform + Python instead of every path.
+          uv pip install --python test-env-wheel/bin/python \
+            arrowmodel --no-index --find-links dist
           test-env-wheel/bin/python -c "import arrowmodel; print('Wheel installation OK')"
 
-      - name: Test sdist installation
+      - name: Test sdist installation (builds the extension from source)
         run: |
           uv venv --python ${{ matrix.python-version }} test-env-sdist
-          uv pip install --python test-env-sdist/bin/python dist/*.tar.gz
+          uv pip install --python test-env-sdist/bin/python \
+            arrowmodel --no-index --find-links dist --no-binary arrowmodel
           test-env-sdist/bin/python -c "import arrowmodel; print('Sdist installation OK')"
 
       - name: Check py.typed marker in wheel
         run: |
-          unzip -l dist/*.whl | grep "arrowmodel/py.typed" || (echo "ERROR: py.typed marker missing" && exit 1)
+          wheel=$(ls dist/*.whl | head -1)
+          unzip -l "$wheel" | grep "arrowmodel/py.typed" \
+            || (echo "ERROR: py.typed marker missing" && exit 1)
 
   changelog:
     name: Generate changelog
-    needs: [build]
+    needs: [build-wheels]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -106,6 +145,9 @@ jobs:
 
   publish:
     name: Publish to PyPI
+    # Only publish for tag pushes -- a workflow_dispatch run builds and validates
+    # the same artifacts without ever touching PyPI.
+    if: startsWith(github.ref, 'refs/tags/')
     needs: [quality, validate, changelog]
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -119,14 +161,16 @@ jobs:
       - name: Download distributions
         uses: actions/download-artifact@v8
         with:
-          name: dist
-          path: dist/
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
 
   github-release:
     name: Create GitHub Release
+    if: startsWith(github.ref, 'refs/tags/')
     needs: [publish]
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -136,8 +180,9 @@ jobs:
       - name: Download distributions
         uses: actions/download-artifact@v8
         with:
-          name: dist
-          path: dist/
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
 
       - name: Download changelog
         uses: actions/download-artifact@v8

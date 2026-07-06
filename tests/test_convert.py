@@ -960,6 +960,24 @@ class OuterModel(BaseModel):
     inner: InnerModel | None = None
 
 
+class PolylineModel(BaseModel):
+    """A model whose field is a list of nested models."""
+
+    points: list[InnerModel] | None = None
+
+
+class GridModel(BaseModel):
+    """A model whose field is a list of lists of nested models."""
+
+    cells: list[list[InnerModel]] | None = None
+
+
+class ShapeModel(BaseModel):
+    """A model whose struct field itself contains a list of nested models."""
+
+    outline: PolylineModel | None = None
+
+
 class TestListTypes:
     """Tests for CPLX-01, CPLX-02: List and LargeList type conversions."""
 
@@ -1130,6 +1148,90 @@ class TestStructTypes:
         assert results[0].address is not None
         # model_construct sets model_fields_set to the kwargs keys
         assert results[0].address.model_fields_set == {"city", "zip_code"}
+
+
+class TestListOfModel:
+    """CPLX-03: nested Pydantic models inside List/FixedSizeList/Map containers."""
+
+    _POINT_STRUCT = pa.struct([("x", pa.int64())])
+
+    @pytest.mark.parametrize("validate", [False, True])
+    def test_list_of_model(self, validate: bool) -> None:
+        """list[NestedModel] (Arrow List(Struct)) builds a list of model instances."""
+        batch = pa.record_batch(
+            {
+                "points": pa.array(
+                    [[{"x": 1}, {"x": 2}], None, []],
+                    type=pa.list_(self._POINT_STRUCT),
+                ),
+            }
+        )
+        results = ArrowModelConverter(PolylineModel, validate=validate).convert(batch)
+        # Pydantic __eq__ compares class as well as fields, so equality here also
+        # confirms the elements are InnerModel instances (not raw dicts).
+        assert results[0].points == [InnerModel(x=1), InnerModel(x=2)]
+        assert results[1].points is None  # null list -> None
+        assert results[2].points == []  # empty list -> []
+
+    @pytest.mark.parametrize("validate", [False, True])
+    def test_nested_list_of_model(self, validate: bool) -> None:
+        """list[list[NestedModel]] threads the leaf model through both list layers."""
+        batch = pa.record_batch(
+            {
+                "cells": pa.array(
+                    [[[{"x": 1}], [{"x": 2}, {"x": 3}]]],
+                    type=pa.list_(pa.list_(self._POINT_STRUCT)),
+                ),
+            }
+        )
+        results = ArrowModelConverter(GridModel, validate=validate).convert(batch)
+        assert results[0].cells == [[InnerModel(x=1)], [InnerModel(x=2), InnerModel(x=3)]]
+
+    @pytest.mark.parametrize("validate", [False, True])
+    def test_large_list_of_model(self, validate: bool) -> None:
+        """large_list[NestedModel] behaves like list[NestedModel]."""
+        batch = pa.record_batch(
+            {
+                "points": pa.array([[{"x": 7}]], type=pa.large_list(self._POINT_STRUCT)),
+            }
+        )
+        results = ArrowModelConverter(PolylineModel, validate=validate).convert(batch)
+        assert results[0].points == [InnerModel(x=7)]
+
+    @pytest.mark.parametrize("validate", [False, True])
+    def test_fixed_size_list_of_model(self, validate: bool) -> None:
+        """fixed_size_list[NestedModel] builds a list of model instances."""
+        batch = pa.record_batch(
+            {
+                "points": pa.array(
+                    [[{"x": 1}, {"x": 2}]],
+                    type=pa.list_(self._POINT_STRUCT, 2),
+                ),
+            }
+        )
+        results = ArrowModelConverter(PolylineModel, validate=validate).convert(batch)
+        assert results[0].points == [InnerModel(x=1), InnerModel(x=2)]
+
+    @pytest.mark.parametrize("validate", [False, True])
+    def test_struct_field_with_list_of_model(self, validate: bool) -> None:
+        """A struct field that itself contains list[NestedModel] resolves recursively."""
+        poly_ty = pa.struct([("points", pa.list_(self._POINT_STRUCT))])
+        batch = pa.record_batch({"outline": pa.array([{"points": [{"x": 9}]}], type=poly_ty)})
+        results = ArrowModelConverter(ShapeModel, validate=validate).convert(batch)
+        assert results[0].outline is not None
+        assert results[0].outline.points == [InnerModel(x=9)]
+
+    def test_struct_without_model_raises_actionable_error(self) -> None:
+        """A Struct column with no model annotation raises a message that names the fix."""
+
+        class NoModel(BaseModel):
+            points: list[int] | None = None  # int, not a model, but Arrow col is List(Struct)
+
+        batch = pa.record_batch(
+            {"points": pa.array([[{"x": 1}]], type=pa.list_(self._POINT_STRUCT))}
+        )
+        with pytest.raises(TypeError, match="has no matching"):
+            ArrowModelConverter(NoModel).convert(batch)
 
 
 # ---------------------------------------------------------------------------

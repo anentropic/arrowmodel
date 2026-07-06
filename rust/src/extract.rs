@@ -49,9 +49,13 @@ pub enum ColumnExtractor<'a> {
     // Complex types
     /// List element extraction: stores child DataType to create temporary
     /// extractors per row's sub-array (ListArray.value(i) returns new ArrayRef).
-    List(&'a ListArray, DataType),
+    /// The `Option<PyObject>` is the element's nested Pydantic model, threaded
+    /// down to the per-row child extractor so a `list[NestedModel]` (Arrow
+    /// `List(Struct)`) can build model instances. It is `None` for lists of
+    /// scalars and passed through unchanged for nested lists (`list[list[..]]`).
+    List(&'a ListArray, DataType, Option<PyObject>),
     /// LargeList: identical to List but uses i64 offsets.
-    LargeList(&'a LargeListArray, DataType),
+    LargeList(&'a LargeListArray, DataType, Option<PyObject>),
     /// Struct: child extractors (pre-built), interned field names, nested model class.
     Struct(
         &'a StructArray,
@@ -82,8 +86,11 @@ pub enum ColumnExtractor<'a> {
     IntervalDayTime(&'a arrow_array::IntervalDayTimeArray),
     IntervalMonthDayNano(&'a arrow_array::IntervalMonthDayNanoArray),
     // Container types
-    FixedSizeList(&'a FixedSizeListArray, DataType),
-    Map(&'a MapArray, DataType, DataType),
+    // The trailing `Option<PyObject>` is the element's nested Pydantic model,
+    // threaded to the per-row child extractor (as for List). For Map it is the
+    // value (or key) model, applied wherever a child resolves to a Struct.
+    FixedSizeList(&'a FixedSizeListArray, DataType, Option<PyObject>),
+    Map(&'a MapArray, DataType, DataType, Option<PyObject>),
     // Union type
     Union(&'a UnionArray, Vec<(i8, DataType)>),
     // Null type -- always returns None
@@ -139,18 +146,31 @@ pub fn prepare_extractor<'a>(
         DataType::Duration(unit) => Ok(ColumnExtractor::Duration(col, *unit)),
         DataType::List(field) => {
             let arr = as_list_array(col);
-            Ok(ColumnExtractor::List(arr, field.data_type().clone()))
+            Ok(ColumnExtractor::List(
+                arr,
+                field.data_type().clone(),
+                nested_model.map(|m| m.clone_ref(py)),
+            ))
         }
         DataType::LargeList(field) => {
             let arr = as_large_list_array(col);
-            Ok(ColumnExtractor::LargeList(arr, field.data_type().clone()))
+            Ok(ColumnExtractor::LargeList(
+                arr,
+                field.data_type().clone(),
+                nested_model.map(|m| m.clone_ref(py)),
+            ))
         }
         DataType::Struct(fields) => {
             let model_cls = nested_model
                 .ok_or_else(|| {
-                    PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-                        "Struct column requires a nested Pydantic model class",
-                    )
+                    let field_names: Vec<&str> =
+                        fields.iter().map(|f| f.name().as_str()).collect();
+                    PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
+                        "Arrow Struct column (fields: {field_names:?}) has no matching \
+                         Pydantic model. Annotate the field with a BaseModel subclass, \
+                         or a container of one (e.g. `MyModel`, `MyModel | None`, \
+                         `list[MyModel]`), so its fields can be constructed."
+                    ))
                 })?
                 .clone_ref(py);
             let struct_arr = as_struct_array(col);
@@ -272,6 +292,7 @@ pub fn prepare_extractor<'a>(
             Ok(ColumnExtractor::FixedSizeList(
                 arr,
                 field.data_type().clone(),
+                nested_model.map(|m| m.clone_ref(py)),
             ))
         }
         DataType::Map(entries_field, _sorted) => {
@@ -279,7 +300,12 @@ pub fn prepare_extractor<'a>(
             if let DataType::Struct(fields) = entries_field.data_type() {
                 let key_dt = fields[0].data_type().clone();
                 let val_dt = fields[1].data_type().clone();
-                Ok(ColumnExtractor::Map(arr, key_dt, val_dt))
+                Ok(ColumnExtractor::Map(
+                    arr,
+                    key_dt,
+                    val_dt,
+                    nested_model.map(|m| m.clone_ref(py)),
+                ))
             } else {
                 Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
                     "Map entries field is not a Struct",
@@ -432,14 +458,18 @@ impl<'a> ColumnExtractor<'a> {
                 }
             }
             // --- Complex types ---
-            ColumnExtractor::List(arr, child_dt) => {
+            ColumnExtractor::List(arr, child_dt, child_model) => {
                 if arr.is_null(row) {
                     Ok(py.None())
                 } else {
                     let child_array = arr.value(row); // ArrayRef for this row's list
                     let len = child_array.len();
-                    let child_ext =
-                        prepare_extractor(py, child_array.as_ref(), child_dt, None)?;
+                    let child_ext = prepare_extractor(
+                        py,
+                        child_array.as_ref(),
+                        child_dt,
+                        child_model.as_ref(),
+                    )?;
                     let mut items: Vec<PyObject> = Vec::with_capacity(len);
                     for j in 0..len {
                         items.push(child_ext.extract_value(py, j)?);
@@ -447,14 +477,18 @@ impl<'a> ColumnExtractor<'a> {
                     Ok(PyList::new(py, &items)?.into_any().unbind())
                 }
             }
-            ColumnExtractor::LargeList(arr, child_dt) => {
+            ColumnExtractor::LargeList(arr, child_dt, child_model) => {
                 if arr.is_null(row) {
                     Ok(py.None())
                 } else {
                     let child_array = arr.value(row);
                     let len = child_array.len();
-                    let child_ext =
-                        prepare_extractor(py, child_array.as_ref(), child_dt, None)?;
+                    let child_ext = prepare_extractor(
+                        py,
+                        child_array.as_ref(),
+                        child_dt,
+                        child_model.as_ref(),
+                    )?;
                     let mut items: Vec<PyObject> = Vec::with_capacity(len);
                     for j in 0..len {
                         items.push(child_ext.extract_value(py, j)?);
@@ -671,14 +705,18 @@ impl<'a> ColumnExtractor<'a> {
                 }
             }
             // --- Container types ---
-            ColumnExtractor::FixedSizeList(arr, child_dt) => {
+            ColumnExtractor::FixedSizeList(arr, child_dt, child_model) => {
                 if arr.is_null(row) {
                     Ok(py.None())
                 } else {
                     let child_array = arr.value(row);
                     let len = child_array.len();
-                    let child_ext =
-                        prepare_extractor(py, child_array.as_ref(), child_dt, None)?;
+                    let child_ext = prepare_extractor(
+                        py,
+                        child_array.as_ref(),
+                        child_dt,
+                        child_model.as_ref(),
+                    )?;
                     let mut items: Vec<PyObject> = Vec::with_capacity(len);
                     for j in 0..len {
                         items.push(child_ext.extract_value(py, j)?);
@@ -686,15 +724,19 @@ impl<'a> ColumnExtractor<'a> {
                     Ok(PyList::new(py, &items)?.into_any().unbind())
                 }
             }
-            ColumnExtractor::Map(arr, key_dt, val_dt) => {
+            ColumnExtractor::Map(arr, key_dt, val_dt, entry_model) => {
                 if arr.is_null(row) {
                     Ok(py.None())
                 } else {
                     let entries = arr.value(row);
                     let keys_arr = entries.column(0);
                     let vals_arr = entries.column(1);
-                    let key_ext = prepare_extractor(py, keys_arr.as_ref(), key_dt, None)?;
-                    let val_ext = prepare_extractor(py, vals_arr.as_ref(), val_dt, None)?;
+                    // The nested model is applied to whichever side resolves to a
+                    // Struct; non-Struct children ignore it.
+                    let key_ext =
+                        prepare_extractor(py, keys_arr.as_ref(), key_dt, entry_model.as_ref())?;
+                    let val_ext =
+                        prepare_extractor(py, vals_arr.as_ref(), val_dt, entry_model.as_ref())?;
                     let len = entries.len();
                     let mut items: Vec<PyObject> = Vec::with_capacity(len);
                     for j in 0..len {
@@ -902,14 +944,18 @@ impl<'a> ColumnExtractor<'a> {
                 }
             }
             // --- Complex types ---
-            ColumnExtractor::List(arr, child_dt) => {
+            ColumnExtractor::List(arr, child_dt, child_model) => {
                 if arr.is_null(row) {
                     Ok(Value::Null)
                 } else {
                     let child_array = arr.value(row);
                     let len = child_array.len();
-                    let child_ext =
-                        prepare_extractor(py, child_array.as_ref(), child_dt, None)?;
+                    let child_ext = prepare_extractor(
+                        py,
+                        child_array.as_ref(),
+                        child_dt,
+                        child_model.as_ref(),
+                    )?;
                     let mut items: Vec<Value> = Vec::with_capacity(len);
                     for j in 0..len {
                         items.push(child_ext.extract_json_value(py, j)?);
@@ -917,14 +963,18 @@ impl<'a> ColumnExtractor<'a> {
                     Ok(Value::Array(items))
                 }
             }
-            ColumnExtractor::LargeList(arr, child_dt) => {
+            ColumnExtractor::LargeList(arr, child_dt, child_model) => {
                 if arr.is_null(row) {
                     Ok(Value::Null)
                 } else {
                     let child_array = arr.value(row);
                     let len = child_array.len();
-                    let child_ext =
-                        prepare_extractor(py, child_array.as_ref(), child_dt, None)?;
+                    let child_ext = prepare_extractor(
+                        py,
+                        child_array.as_ref(),
+                        child_dt,
+                        child_model.as_ref(),
+                    )?;
                     let mut items: Vec<Value> = Vec::with_capacity(len);
                     for j in 0..len {
                         items.push(child_ext.extract_json_value(py, j)?);
@@ -1192,14 +1242,18 @@ impl<'a> ColumnExtractor<'a> {
                 }
             }
             // --- Container types ---
-            ColumnExtractor::FixedSizeList(arr, child_dt) => {
+            ColumnExtractor::FixedSizeList(arr, child_dt, child_model) => {
                 if arr.is_null(row) {
                     Ok(Value::Null)
                 } else {
                     let child_array = arr.value(row);
                     let len = child_array.len();
-                    let child_ext =
-                        prepare_extractor(py, child_array.as_ref(), child_dt, None)?;
+                    let child_ext = prepare_extractor(
+                        py,
+                        child_array.as_ref(),
+                        child_dt,
+                        child_model.as_ref(),
+                    )?;
                     let mut items: Vec<Value> = Vec::with_capacity(len);
                     for j in 0..len {
                         items.push(child_ext.extract_json_value(py, j)?);
@@ -1207,15 +1261,17 @@ impl<'a> ColumnExtractor<'a> {
                     Ok(Value::Array(items))
                 }
             }
-            ColumnExtractor::Map(arr, key_dt, val_dt) => {
+            ColumnExtractor::Map(arr, key_dt, val_dt, entry_model) => {
                 if arr.is_null(row) {
                     Ok(Value::Null)
                 } else {
                     let entries = arr.value(row);
                     let keys_arr = entries.column(0);
                     let vals_arr = entries.column(1);
-                    let key_ext = prepare_extractor(py, keys_arr.as_ref(), key_dt, None)?;
-                    let val_ext = prepare_extractor(py, vals_arr.as_ref(), val_dt, None)?;
+                    let key_ext =
+                        prepare_extractor(py, keys_arr.as_ref(), key_dt, entry_model.as_ref())?;
+                    let val_ext =
+                        prepare_extractor(py, vals_arr.as_ref(), val_dt, entry_model.as_ref())?;
                     let len = entries.len();
                     let mut items: Vec<Value> = Vec::with_capacity(len);
                     for j in 0..len {

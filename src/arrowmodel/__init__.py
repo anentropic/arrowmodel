@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import types
 import typing
 from typing import TYPE_CHECKING, Any, ClassVar, Self, cast
 
@@ -28,25 +27,33 @@ __all__ = [
 
 def _get_nested_model(annotation: Any) -> type[BaseModel] | None:
     """
-    Extract nested BaseModel class from a Pydantic field annotation.
+    Extract the nested BaseModel class from a Pydantic field annotation.
+
+    Returns the first BaseModel found by walking the annotation's type
+    arguments, which is what the Rust extractor threads into a Struct child.
 
     Handles:
     - Direct BaseModel subclass: ``NestedModel`` -> ``NestedModel``
-    - Optional[NestedModel] (Union[NestedModel, None]): -> ``NestedModel``
+    - Optional[NestedModel] (Union[NestedModel, None]) -> ``NestedModel``
+    - Container of model: ``list[NestedModel]``, ``list[list[NestedModel]]``,
+      ``dict[str, NestedModel]`` -> ``NestedModel`` (the leaf element model)
     - Non-model types: -> ``None``
+
+    The returned model is only *used* when the corresponding Arrow column (or a
+    child of it) is a Struct; for non-Struct columns the Rust side ignores it,
+    so returning a leaf model for a container annotation is always safe.
     """
     if annotation is None:
         return None
     # Direct BaseModel subclass
     if isinstance(annotation, type) and issubclass(annotation, BaseModel):
         return annotation
-    # Optional[NestedModel] = Union[NestedModel, None]
-    origin = typing.get_origin(annotation)
-    if origin is typing.Union or origin is types.UnionType:
-        args = typing.get_args(annotation)
-        for arg in args:
-            if isinstance(arg, type) and issubclass(arg, BaseModel):
-                return arg
+    # Recurse into type arguments: Optional[Model], list[Model],
+    # list[list[Model]], dict[str, Model], etc. Returns the first model found.
+    for arg in typing.get_args(annotation):
+        nested = _get_nested_model(arg)
+        if nested is not None:
+            return nested
     return None
 
 

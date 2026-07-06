@@ -146,3 +146,47 @@ Struct-in-struct works to arbitrary depth. Define matching nested models:
    results = model_convert(Wrapper, batch)
    print(results[0].outer.inner.x)  # 10
    print(results[1].outer.inner.x)  # 20
+
+Lists of nested models
+----------------------
+
+A ``List(Struct)`` column whose field is annotated ``list[Model]`` produces a
+list of model instances. The element model is threaded into the struct
+extractor, so nested containers (``list[list[Model]]``), ``FixedSizeList``, and
+struct fields that themselves contain ``list[Model]`` all resolve recursively:
+
+.. code-block:: python
+
+   class Point(BaseModel):
+       x: int
+       y: int
+
+
+   class Path(BaseModel):
+       points: list[Point] | None = None
+
+
+   point_struct = pa.struct([("x", pa.int64()), ("y", pa.int64())])
+   batch = pa.record_batch(
+       {
+           "points": pa.array(
+               [[{"x": 1, "y": 2}, {"x": 3, "y": 4}], None, []],
+               type=pa.list_(point_struct),
+           ),
+       }
+   )
+
+   paths = model_convert(Path, batch)
+   print(paths[0].points)  # [Point(x=1, y=2), Point(x=3, y=4)]
+   print(paths[1].points)  # None  (null list)
+   print(paths[2].points)  # []    (empty list)
+
+A null list produces ``None``; an empty list produces ``[]``.
+
+.. note::
+
+   ``Map`` columns are the one container that does not produce a ``dict``: they
+   materialise as ``list[tuple[K, V]]`` (Arrow Map keys may be non-string or
+   duplicated). Annotate Map fields as ``list[tuple[K, V]]`` -- Map values may
+   themselves be nested models. A ``dict`` annotation over a Map column raises
+   ``TypeError``. See :ref:`explanation-type-mappings`.

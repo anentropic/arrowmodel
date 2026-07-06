@@ -263,6 +263,22 @@ List and container types
 Nested list types (``List(List(Int64))``) produce nested Python lists
 (``list[list[int]]``).
 
+Container elements may themselves be nested models. A ``List(Struct)`` column
+whose field is annotated ``list[MyModel]`` produces a list of ``MyModel``
+instances; this threads recursively, so ``list[list[MyModel]]``,
+``FixedSizeList(MyModel)``, and struct fields containing ``list[MyModel]`` all
+work. See :ref:`how-to-convert-nested-models`.
+
+.. note::
+
+   ``Map`` columns are materialised as a **list of** ``(key, value)`` **pairs**,
+   not a ``dict``. This is lossless for Arrow Maps, whose keys may be non-string
+   or duplicated (neither of which a Python ``dict`` or JSON object can
+   represent). Annotate a Map field as ``list[tuple[K, V]]``; a ``dict`` /
+   ``Mapping`` annotation over a Map column raises ``TypeError`` at
+   ``convert()`` time. Map values may be nested models
+   (``list[tuple[str, MyModel]]``).
+
 Struct type
 -----------
 

@@ -495,6 +495,23 @@ class TestMap:
         results = converter.convert(map_batch)
         assert results[2].kv == [("c", 3)]
 
+    @pytest.mark.parametrize("validate", [False, True])
+    def test_map_dict_annotation_raises(self, map_batch: pa.RecordBatch, validate: bool) -> None:
+        """
+        A dict/Mapping-typed field over a Map column raises an actionable error.
+
+        Map columns materialise as list[tuple[K, V]], not dict, so a dict
+        annotation is rejected at convert() time on both paths (rather than
+        silently producing a mistyped list or a generic Pydantic error).
+        """
+
+        class DictMapModel(BaseModel):
+            kv: dict[str, int] | None = None
+
+        converter = ArrowModelConverter(DictMapModel, validate=validate)
+        with pytest.raises(TypeError, match="list of \\(key, value\\) pairs"):
+            converter.convert(map_batch)
+
 
 # ---------------------------------------------------------------------------
 # RunEndEncoded tests

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import types
 import typing
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, ClassVar, Self, cast
 
 from pydantic import AliasChoices, AliasPath, BaseModel
@@ -55,6 +57,40 @@ def _get_nested_model(annotation: Any) -> type[BaseModel] | None:
         if nested is not None:
             return nested
     return None
+
+
+def _is_mapping_annotation(annotation: Any) -> bool:
+    """
+    True if the annotation is (or wraps via Optional/Union) a ``dict``/``Mapping``.
+
+    Used to give an actionable error when a mapping-typed field targets an Arrow
+    ``Map`` column, which arrowmodel materialises as ``list[tuple[K, V]]`` rather
+    than a ``dict`` (see :func:`_get_nested_model` for the model-threading path).
+    """
+    if annotation is None:
+        return False
+    if isinstance(annotation, type):
+        return issubclass(annotation, Mapping)
+    origin = typing.get_origin(annotation)
+    if origin is typing.Union or origin is types.UnionType:
+        return any(_is_mapping_annotation(arg) for arg in typing.get_args(annotation))
+    if isinstance(origin, type):
+        return issubclass(origin, Mapping)
+    return False
+
+
+def _arrow_is_map(arrow_type: Any) -> bool:
+    """
+    True if the given Arrow ``DataType`` is a ``Map``.
+
+    Best-effort: returns False if pyarrow is not importable (the guard is a
+    friendly-error nicety, not a correctness requirement).
+    """
+    try:
+        import pyarrow as pa
+    except ImportError:
+        return False
+    return pa.types.is_map(arrow_type)
 
 
 def _build_field_map(model_class: type[BaseModel]) -> dict[str, str]:
@@ -164,8 +200,23 @@ class ArrowModelConverter:
             col_idx = schema.get_field_index(lookup_name)
             if col_idx < 0:
                 continue
-            # Detect nested BaseModel for Struct columns
             field_info = self._model_class.model_fields[field_name]
+            # Guard: a dict/Mapping field cannot be fed from a Map column, which
+            # is materialised as list[tuple[K, V]] (dict output is unsupported --
+            # Map keys may be non-string or duplicated). Raise here rather than
+            # silently produce a mistyped list (fast path) or a generic Pydantic
+            # error (validated path).
+            if _is_mapping_annotation(field_info.annotation) and _arrow_is_map(
+                cast("Any", schema).field(col_idx).type
+            ):
+                raise TypeError(
+                    f"Field {field_name!r} is annotated as a mapping (dict/Mapping), "
+                    f"but the Arrow column {lookup_name!r} is a Map, which arrowmodel "
+                    f"materialises as a list of (key, value) pairs. Annotate the field "
+                    f"as list[tuple[K, V]] instead; dict output from Map columns is not "
+                    f"supported."
+                )
+            # Detect nested BaseModel for Struct columns
             nested_model = _get_nested_model(field_info.annotation)
             field_specs.append((col_idx, field_name, nested_model))
             resolved_fields.add(field_name)

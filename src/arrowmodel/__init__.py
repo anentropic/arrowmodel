@@ -83,14 +83,18 @@ def _arrow_is_map(arrow_type: Any) -> bool:
     """
     True if the given Arrow ``DataType`` is a ``Map``.
 
-    Best-effort: returns False if pyarrow is not importable (the guard is a
-    friendly-error nicety, not a correctness requirement).
+    Best-effort: returns False if pyarrow is not importable, or if ``arrow_type``
+    is not a pyarrow ``DataType`` (e.g. a polars/nanoarrow schema arriving via the
+    Arrow C Data Interface, where ``pa.types.is_map`` would raise rather than
+    return False). The guard is a friendly-error nicety, not a correctness
+    requirement, so any failure degrades to False.
     """
     try:
         import pyarrow as pa
-    except ImportError:
+
+        return pa.types.is_map(arrow_type)
+    except Exception:
         return False
-    return pa.types.is_map(arrow_type)
 
 
 def _build_field_map(model_class: type[BaseModel]) -> dict[str, str]:

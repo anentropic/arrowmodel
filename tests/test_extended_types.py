@@ -512,6 +512,22 @@ class TestMap:
         with pytest.raises(TypeError, match="list of \\(key, value\\) pairs"):
             converter.convert(map_batch)
 
+    def test_arrow_is_map_best_effort_on_non_pyarrow_type(self) -> None:
+        """
+        _arrow_is_map degrades to False (never raises) for a non-pyarrow type.
+
+        The Map guard is best-effort: a schema arriving via the Arrow C Data
+        Interface from a non-pyarrow producer can present a type that
+        ``pa.types.is_map`` cannot handle. That must return False, not raise.
+        """
+        from arrowmodel import _arrow_is_map
+
+        assert _arrow_is_map(object()) is False
+        assert _arrow_is_map("not a datatype") is False
+        assert _arrow_is_map(None) is False
+        # A genuine pyarrow Map type still returns True.
+        assert _arrow_is_map(pa.map_(pa.string(), pa.int64())) is True
+
 
 # ---------------------------------------------------------------------------
 # RunEndEncoded tests

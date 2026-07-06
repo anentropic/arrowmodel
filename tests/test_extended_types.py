@@ -639,8 +639,10 @@ class TestValidatedScalarTypes:
         """
         Validated path sends base64-encoded binary in JSON.
 
-        Pydantic treats JSON string as UTF-8 bytes, not base64-decoded.
-        So the result is the base64 string encoded as bytes.
+        A plain `bytes` field is populated by Pydantic from a JSON string as
+        UTF-8, not base64-decoded, so it receives the base64 *text* as bytes.
+        To recover the original bytes on the validated path, the field must opt
+        into base64 decoding (see ``test_binary_validated_base64bytes``).
         """
         import base64
 
@@ -648,6 +650,17 @@ class TestValidatedScalarTypes:
         results = converter.convert(binary_batch)
         expected = base64.b64encode(b"\x00\x01\x02")
         assert results[0].data == expected
+        assert results[1].data is None
+
+    def test_binary_validated_base64bytes(self, binary_batch: pa.RecordBatch) -> None:
+        """A ``Base64Bytes`` field recovers the original bytes on the validated path."""
+        from pydantic import Base64Bytes
+
+        class Base64BinaryModel(BaseModel):
+            data: Base64Bytes | None = None
+
+        results = ArrowModelConverter(Base64BinaryModel, validate=True).convert(binary_batch)
+        assert results[0].data == b"\x00\x01\x02"
         assert results[1].data is None
 
     def test_decimal32_validated(self, decimal32_batch: pa.RecordBatch) -> None:

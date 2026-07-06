@@ -218,3 +218,16 @@ class TestArrowModel:
         items = list(SimpleUser.iter(batch, validate=True))
         assert len(items) == 2
         assert all(isinstance(i, SimpleUser) for i in items)
+
+
+class FieldlessModel(ArrowModel):
+    """An ArrowModel subclass with no fields."""
+
+
+class TestFieldlessSubclass:
+    def test_fieldless_subclass_gets_converter(self) -> None:
+        """A field-less subclass still gets a converter (no AttributeError)."""
+        batch = pa.record_batch({"ignored": pa.array([1, 2, 3], type=pa.int64())})
+        results = FieldlessModel.convert(batch)
+        assert len(results) == 3
+        assert all(type(r) is FieldlessModel for r in results)

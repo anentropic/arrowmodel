@@ -814,11 +814,26 @@ class TestTemporalTypes:
         assert results[0].created_at.tzname() is not None
 
     def test_timestamp_aware_iana(self, timestamp_tz_batch: pa.RecordBatch) -> None:
-        """TEMP-03: Timestamp with IANA timezone preserves ZoneInfo."""
+        """TEMP-03: Timestamp with IANA timezone preserves both the zone and the instant."""
         results = ArrowModelConverter(TimestampModel).convert(timestamp_tz_batch)
         assert results[0].created_at is not None
-        assert results[0].created_at.tzinfo is not None
         assert results[0].created_at.tzinfo == ZoneInfo("America/New_York")
+        # The absolute instant must match what pyarrow itself materializes --
+        # attaching the zone to the UTC wall-clock (instead of converting the
+        # instant into the zone) would silently shift the time by the offset.
+        expected = timestamp_tz_batch.to_pylist()[0]["created_at"]
+        assert results[0].created_at == expected
+        assert results[0].created_at.astimezone(datetime.UTC) == expected.astimezone(datetime.UTC)
+
+    def test_timestamp_aware_fast_and_validated_agree(
+        self, timestamp_tz_batch: pa.RecordBatch
+    ) -> None:
+        """Fast and validated paths must resolve tz-aware timestamps to the same instant."""
+        fast = ArrowModelConverter(TimestampModel).convert(timestamp_tz_batch)[0]
+        validated = ArrowModelConverter(TimestampModel, validate=True).convert(timestamp_tz_batch)[
+            0
+        ]
+        assert fast.created_at == validated.created_at
 
     def test_nanosecond_truncation(self, timestamp_ns_batch: pa.RecordBatch) -> None:
         """TEMP-05: Nanosecond timestamp truncates to microsecond precision."""
@@ -1273,6 +1288,24 @@ class TestValidatedPath:
         assert results[0].elapsed == datetime.timedelta(hours=1)
         assert results[1].elapsed is None
         assert results[2].elapsed == datetime.timedelta(seconds=1)
+
+    def test_validated_duration_negative(self) -> None:
+        """
+        VALID-02: negative durations keep their sign, including sub-second ones.
+
+        A sub-second negative duration (e.g. -500ms) has whole seconds == 0, so
+        the ISO-8601 serialization must derive the sign from the full delta, not
+        from the truncated seconds component.
+        """
+        batch = pa.record_batch(
+            {
+                "elapsed": pa.array([-500000, -1500000, -3600000000], type=pa.duration("us")),
+            }
+        )
+        results = ArrowModelConverter(ValidatedDurationModel, validate=True).convert(batch)
+        assert results[0].elapsed == datetime.timedelta(microseconds=-500000)
+        assert results[1].elapsed == datetime.timedelta(seconds=-1, microseconds=-500000)
+        assert results[2].elapsed == datetime.timedelta(hours=-1)
 
     def test_validated_list(self) -> None:
         """VALID-02: validate=True with List(Int64) produces correct Python lists."""

@@ -19,7 +19,7 @@ use arrow_array::{
 };
 use arrow_schema::{DataType, IntervalUnit, TimeUnit};
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyDateTime, PyDict, PyList, PyString, PyTime, PyTuple, PyTzInfo};
+use pyo3::types::{PyBytes, PyDict, PyList, PyString, PyTime, PyTuple};
 use serde_json::{Map, Number, Value};
 
 type PyObject = Py<PyAny>;
@@ -60,10 +60,12 @@ pub enum ColumnExtractor<'a> {
     ),
     // Extended scalar types
     Float16(&'a arrow_array::Float16Array),
-    Decimal128(&'a arrow_array::Decimal128Array),
-    Decimal256(&'a arrow_array::Decimal256Array),
-    Decimal32(&'a arrow_array::Decimal32Array),
-    Decimal64(&'a arrow_array::Decimal64Array),
+    // Decimal variants cache the Python `decimal.Decimal` class (looked up once
+    // in prepare_extractor) so the row loop avoids a per-row module import.
+    Decimal128(&'a arrow_array::Decimal128Array, PyObject),
+    Decimal256(&'a arrow_array::Decimal256Array, PyObject),
+    Decimal32(&'a arrow_array::Decimal32Array, PyObject),
+    Decimal64(&'a arrow_array::Decimal64Array, PyObject),
     // Extended temporal types
     Date64(&'a arrow_array::Date64Array),
     Time32(&'a dyn Array, TimeUnit),
@@ -86,6 +88,12 @@ pub enum ColumnExtractor<'a> {
     Union(&'a UnionArray, Vec<(i8, DataType)>),
     // Null type -- always returns None
     Null,
+}
+
+/// Look up the `decimal.Decimal` class once, to be cached in a decimal
+/// extractor variant and reused across all rows of the column.
+fn import_decimal_cls(py: Python<'_>) -> PyResult<PyObject> {
+    Ok(py.import("decimal")?.getattr("Decimal")?.unbind())
 }
 
 /// Downcast an Arrow column to a concrete typed array once, before the row loop.
@@ -192,21 +200,25 @@ pub fn prepare_extractor<'a>(
             col.as_any()
                 .downcast_ref::<arrow_array::Decimal128Array>()
                 .expect("Decimal128Array"),
+            import_decimal_cls(py)?,
         )),
         DataType::Decimal256(_, _) => Ok(ColumnExtractor::Decimal256(
             col.as_any()
                 .downcast_ref::<arrow_array::Decimal256Array>()
                 .expect("Decimal256Array"),
+            import_decimal_cls(py)?,
         )),
         DataType::Decimal32(_, _) => Ok(ColumnExtractor::Decimal32(
             col.as_any()
                 .downcast_ref::<arrow_array::Decimal32Array>()
                 .expect("Decimal32Array"),
+            import_decimal_cls(py)?,
         )),
         DataType::Decimal64(_, _) => Ok(ColumnExtractor::Decimal64(
             col.as_any()
                 .downcast_ref::<arrow_array::Decimal64Array>()
                 .expect("Decimal64Array"),
+            import_decimal_cls(py)?,
         )),
         // Extended temporal types
         DataType::Date64 => Ok(ColumnExtractor::Date64(
@@ -473,44 +485,36 @@ impl<'a> ColumnExtractor<'a> {
                     Ok(arr.value(row).to_f32().into_pyobject(py)?.into_any().unbind())
                 }
             }
-            ColumnExtractor::Decimal128(arr) => {
+            ColumnExtractor::Decimal128(arr, decimal_cls) => {
                 if arr.is_null(row) {
                     Ok(py.None())
                 } else {
                     let s = arr.value_as_string(row);
-                    let decimal_mod = py.import("decimal")?;
-                    let decimal_cls = decimal_mod.getattr("Decimal")?;
-                    Ok(decimal_cls.call1((s,))?.unbind())
+                    Ok(decimal_cls.bind(py).call1((s,))?.unbind())
                 }
             }
-            ColumnExtractor::Decimal256(arr) => {
+            ColumnExtractor::Decimal256(arr, decimal_cls) => {
                 if arr.is_null(row) {
                     Ok(py.None())
                 } else {
                     let s = arr.value_as_string(row);
-                    let decimal_mod = py.import("decimal")?;
-                    let decimal_cls = decimal_mod.getattr("Decimal")?;
-                    Ok(decimal_cls.call1((s,))?.unbind())
+                    Ok(decimal_cls.bind(py).call1((s,))?.unbind())
                 }
             }
-            ColumnExtractor::Decimal32(arr) => {
+            ColumnExtractor::Decimal32(arr, decimal_cls) => {
                 if arr.is_null(row) {
                     Ok(py.None())
                 } else {
                     let s = arr.value_as_string(row);
-                    let decimal_mod = py.import("decimal")?;
-                    let decimal_cls = decimal_mod.getattr("Decimal")?;
-                    Ok(decimal_cls.call1((s,))?.unbind())
+                    Ok(decimal_cls.bind(py).call1((s,))?.unbind())
                 }
             }
-            ColumnExtractor::Decimal64(arr) => {
+            ColumnExtractor::Decimal64(arr, decimal_cls) => {
                 if arr.is_null(row) {
                     Ok(py.None())
                 } else {
                     let s = arr.value_as_string(row);
-                    let decimal_mod = py.import("decimal")?;
-                    let decimal_cls = decimal_mod.getattr("Decimal")?;
-                    Ok(decimal_cls.call1((s,))?.unbind())
+                    Ok(decimal_cls.bind(py).call1((s,))?.unbind())
                 }
             }
             // --- Extended temporal types ---
@@ -956,28 +960,28 @@ impl<'a> ColumnExtractor<'a> {
                     }
                 }
             }
-            ColumnExtractor::Decimal128(arr) => {
+            ColumnExtractor::Decimal128(arr, _) => {
                 if arr.is_null(row) {
                     Ok(Value::Null)
                 } else {
                     Ok(Value::String(arr.value_as_string(row)))
                 }
             }
-            ColumnExtractor::Decimal256(arr) => {
+            ColumnExtractor::Decimal256(arr, _) => {
                 if arr.is_null(row) {
                     Ok(Value::Null)
                 } else {
                     Ok(Value::String(arr.value_as_string(row)))
                 }
             }
-            ColumnExtractor::Decimal32(arr) => {
+            ColumnExtractor::Decimal32(arr, _) => {
                 if arr.is_null(row) {
                     Ok(Value::Null)
                 } else {
                     Ok(Value::String(arr.value_as_string(row)))
                 }
             }
-            ColumnExtractor::Decimal64(arr) => {
+            ColumnExtractor::Decimal64(arr, _) => {
                 if arr.is_null(row) {
                     Ok(Value::Null)
                 } else {
@@ -1089,6 +1093,14 @@ impl<'a> ColumnExtractor<'a> {
                 }
             }
             // --- Binary types ---
+            // Binary is emitted as a base64 string: raw bytes are not valid
+            // UTF-8 and cannot round-trip through a JSON string. NOTE: Pydantic's
+            // default decodes a JSON string into `bytes` as UTF-8, so a plain
+            // `bytes` field receives the base64 *text*, not the original bytes.
+            // To recover the original bytes on the validated path, the field must
+            // opt into base64 decoding (e.g. `pydantic.Base64Bytes`, or model
+            // config `val_json_bytes="base64"`). The fast path returns raw bytes
+            // directly and needs no such annotation.
             ColumnExtractor::Binary(arr) => {
                 if arr.is_null(row) {
                     Ok(Value::Null)
@@ -1273,7 +1285,12 @@ fn extract_naive_datetime(
 }
 
 /// Extract a timezone-aware datetime from a timestamp column at the given row.
-/// Constructs a PyDateTime with the cached ZoneInfo tzinfo object.
+///
+/// Arrow stores tz-aware timestamps as a UTC instant; the timezone is display
+/// metadata. `value_as_datetime` returns that instant as a UTC wall-clock, so we
+/// build a UTC-aware Python datetime first and then `astimezone(tz)` to shift it
+/// into the target zone. Attaching the ZoneInfo directly to the UTC wall-clock
+/// would re-interpret the numbers as local time and move the absolute instant.
 fn extract_aware_datetime(
     py: Python<'_>,
     arr: &dyn Array,
@@ -1297,22 +1314,11 @@ fn extract_aware_datetime(
     };
     match naive_dt {
         Some(dt) => {
-            use chrono::Datelike;
-            use chrono::Timelike;
-            let tz_bound = tz_obj.bind(py);
-            let tz_info: &Bound<'_, PyTzInfo> = tz_bound.cast::<PyTzInfo>()?;
-            let py_dt = PyDateTime::new(
-                py,
-                dt.year(),
-                dt.month() as u8,
-                dt.day() as u8,
-                dt.hour() as u8,
-                dt.minute() as u8,
-                dt.second() as u8,
-                (dt.nanosecond() / 1000) as u32, // TEMP-05: truncate ns to us
-                Some(tz_info),
-            )?;
-            Ok(py_dt.into_any().unbind())
+            // dt is the UTC instant. Convert to a UTC-aware Python datetime
+            // (chrono truncates ns -> us per TEMP-05), then localize.
+            let py_utc = dt.and_utc().into_pyobject(py)?;
+            let localized = py_utc.call_method1("astimezone", (tz_obj.bind(py),))?;
+            Ok(localized.into_any().unbind())
         }
         None => Ok(py.None()),
     }
@@ -1349,9 +1355,12 @@ fn extract_duration(
 /// Convert a chrono::TimeDelta to ISO 8601 duration string (PxDTxHxMxS).
 /// Pydantic's model_validate_json expects this format for timedelta fields.
 fn timedelta_to_iso8601(td: &chrono::TimeDelta) -> String {
-    let total_secs = td.num_seconds();
-    let is_negative = total_secs < 0;
-    let total_secs = total_secs.unsigned_abs();
+    // Derive the sign from the whole delta, not from num_seconds() -- for a
+    // sub-second negative duration (e.g. -500ms) num_seconds() truncates to 0
+    // and would drop the sign. Work with the absolute magnitude thereafter.
+    let is_negative = *td < chrono::TimeDelta::zero();
+    let td = td.abs();
+    let total_secs = td.num_seconds().unsigned_abs();
 
     let days = total_secs / 86400;
     let remaining = total_secs % 86400;

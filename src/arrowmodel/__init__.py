@@ -259,12 +259,13 @@ class ArrowModel(BaseModel):
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs: Any) -> None:
         super().__pydantic_init_subclass__(**kwargs)
-        # Only create converter for concrete subclasses that have fields.
+        # Always create the converter, even for field-less subclasses, so that
+        # `.convert()` / `.iter()` return an empty/degenerate result instead of
+        # raising AttributeError on a missing `_arrow_converter`.
         # __pydantic_init_subclass__ runs after Pydantic's metaclass has
         # populated model_fields, unlike __init_subclass__ which fires
         # before field resolution.
-        if cls.model_fields:
-            cls._arrow_converter = ArrowModelConverter(cls, validate=False)
+        cls._arrow_converter = ArrowModelConverter(cls, validate=False)
 
     @classmethod
     def convert(cls, data: pa.RecordBatch | pa.Table, *, validate: bool = False) -> list[Self]:

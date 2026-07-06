@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: milestone
 status: Awaiting next milestone
-last_updated: "2026-07-05T22:43:45.032Z"
-last_activity: 2026-07-05 — Milestone v1.0.0 completed and archived
+last_updated: "2026-07-06T00:00:00.000Z"
+last_activity: 2026-07-06 — Quick 260706-nlm: PR #16 review fixes + list[NestedModel] support (on gsd/v1.0-milestone, PR not yet merged)
 progress:
   total_phases: 7
   completed_phases: 7
@@ -118,6 +118,9 @@ Recent decisions affecting current work:
 - [Phase 07]: Default validate=False on from_arrow preserves backward compatibility
 - [Phase 07]: Used C Data Interface export/re-import with format string override for IntervalYearMonth/DayTime arrays since pyarrow has no public constructors
 - [Quick 260404-1uo]: Used __pydantic_init_subclass__ instead of __init_subclass__ for ArrowModel converter creation (model_fields empty during __init_subclass__)
+- [Quick 260706-nlm]: tz-aware fast path must build the UTC instant then astimezone(tz) — attaching ZoneInfo to the UTC wall-clock shifts the instant by the zone offset
+- [Quick 260706-nlm]: Nested models inside containers work by threading the leaf model through List/FixedSizeList/Map extractors; consumed only when a child is a Struct, so it propagates through nested containers safely
+- [Quick 260706-nlm]: Map stays list[tuple[K, V]] (lossless for non-string/duplicate keys); a dict-annotated field over a Map column raises an actionable TypeError
 
 ### Pending Todos
 
@@ -140,6 +143,7 @@ None yet.
 | 260322-k1b | Add nested 10-level struct benchmark to bench_convert.py | 2026-03-22 | 4d85542 | [260322-k1b-update-benchmarks-bench-convert-py-with-](./quick/260322-k1b-update-benchmarks-bench-convert-py-with-/) |
 | 260404-1uo | ArrowModel base class with convert/iter classmethods | 2026-04-04 | 2d497aa | [260404-1uo-arrowmodel-base-class-with-convert-and-i](./quick/260404-1uo-arrowmodel-base-class-with-convert-and-i/) |
 | 260705-ti7 | Complete package rename arrowdantic → arrowmodel (remaining references and filenames) | 2026-07-05 | f78b972 | [260705-ti7-complete-package-rename-arrowdantic-to-a](./quick/260705-ti7-complete-package-rename-arrowdantic-to-a/) |
+| 260706-nlm | PR #16 review fixes + list[NestedModel] container support (retroactive capture) | 2026-07-06 | 5ed2de2, 810897b, 2ec2198 | [260706-nlm-pr16-review-fixes-and-list-of-model](./quick/260706-nlm-pr16-review-fixes-and-list-of-model/) |
 
 ## Deferred Items
 
@@ -159,4 +163,6 @@ Resume file: None
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Land PR #16 (`gsd/v1.0-milestone` → `main`), then create the `v1.0.0` tag — it now
+  carries quick task 260706-nlm (review fixes + `list[NestedModel]` support).
+- Then start the next milestone with /gsd-new-milestone (schema-model bridge research todo).

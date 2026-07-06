@@ -49,13 +49,14 @@ pub enum ColumnExtractor<'a> {
     // Complex types
     /// List element extraction: stores child DataType to create temporary
     /// extractors per row's sub-array (ListArray.value(i) returns new ArrayRef).
-    /// The `Option<PyObject>` is the element's nested Pydantic model, threaded
-    /// down to the per-row child extractor so a `list[NestedModel]` (Arrow
-    /// `List(Struct)`) can build model instances. It is `None` for lists of
-    /// scalars and passed through unchanged for nested lists (`list[list[..]]`).
-    List(&'a ListArray, DataType, Option<PyObject>),
+    /// The `ModelPlan` is the element's pre-resolved nested-model plan (built
+    /// once per column), threaded to the per-row child extractor so a
+    /// `list[NestedModel]` (Arrow `List(Struct)`) can build model instances
+    /// without any per-row Python introspection. `ModelPlan::None` for lists of
+    /// scalars; nested for nested lists (`list[list[..]]`).
+    List(&'a ListArray, DataType, ModelPlan),
     /// LargeList: identical to List but uses i64 offsets.
-    LargeList(&'a LargeListArray, DataType, Option<PyObject>),
+    LargeList(&'a LargeListArray, DataType, ModelPlan),
     /// Struct: child extractors (pre-built), interned field names, nested model class.
     Struct(
         &'a StructArray,
@@ -86,11 +87,11 @@ pub enum ColumnExtractor<'a> {
     IntervalDayTime(&'a arrow_array::IntervalDayTimeArray),
     IntervalMonthDayNano(&'a arrow_array::IntervalMonthDayNanoArray),
     // Container types
-    // The trailing `Option<PyObject>` is the element's nested Pydantic model,
-    // threaded to the per-row child extractor (as for List). For Map it is the
-    // value (or key) model, applied wherever a child resolves to a Struct.
-    FixedSizeList(&'a FixedSizeListArray, DataType, Option<PyObject>),
-    Map(&'a MapArray, DataType, DataType, Option<PyObject>),
+    // The trailing `ModelPlan`(s) are the child elements' pre-resolved
+    // nested-model plans (built once per column), threaded to the per-row child
+    // extractor (as for List). Map carries a separate key-plan and value-plan.
+    FixedSizeList(&'a FixedSizeListArray, DataType, ModelPlan),
+    Map(&'a MapArray, DataType, DataType, ModelPlan, ModelPlan),
     // Union type
     Union(&'a UnionArray, Vec<(i8, DataType)>),
     // Null type -- always returns None
@@ -103,6 +104,152 @@ fn import_decimal_cls(py: Python<'_>) -> PyResult<PyObject> {
     Ok(py.import("decimal")?.getattr("Decimal")?.unbind())
 }
 
+/// Pre-resolved nested Pydantic model plan for a column subtree.
+///
+/// Built once per column by [`build_model_plan`] and threaded (by reference)
+/// through the extractor construction. This mirrors the Arrow `DataType` tree so
+/// the per-row rebuild of container child extractors (List/Map over a Struct)
+/// does **no** Python introspection: the model class for each Struct and the
+/// per-field child plans are resolved a single time up front, not once per row.
+pub enum ModelPlan {
+    /// No nested model anywhere in this subtree (scalar columns, unions, etc.).
+    None,
+    /// A Struct: its Pydantic model class plus a per-field child plan, in Arrow
+    /// field order (aligned positionally with `DataType::Struct(fields)`).
+    Struct {
+        model: PyObject,
+        children: Vec<ModelPlan>,
+    },
+    /// A single-child container (List / LargeList / FixedSizeList): the element
+    /// plan.
+    List(Box<ModelPlan>),
+    /// A Map: the key plan and the value plan.
+    Map(Box<ModelPlan>, Box<ModelPlan>),
+}
+
+impl ModelPlan {
+    /// Deep-clone the plan, incrementing the refcount of each held model class.
+    /// Cheap (no Python calls / imports) — used when an owned child plan must be
+    /// stored inside a per-row-built container extractor.
+    fn clone_ref(&self, py: Python<'_>) -> ModelPlan {
+        match self {
+            ModelPlan::None => ModelPlan::None,
+            ModelPlan::Struct { model, children } => ModelPlan::Struct {
+                model: model.clone_ref(py),
+                children: children.iter().map(|c| c.clone_ref(py)).collect(),
+            },
+            ModelPlan::List(inner) => ModelPlan::List(Box::new(inner.clone_ref(py))),
+            ModelPlan::Map(k, v) => {
+                ModelPlan::Map(Box::new(k.clone_ref(py)), Box::new(v.clone_ref(py)))
+            }
+        }
+    }
+}
+
+/// Build the [`ModelPlan`] for a column subtree once, resolving the nested
+/// Pydantic model class for every Struct via a single walk. This is the only
+/// place that calls into Python (`arrowmodel._get_nested_model`); the row loop
+/// then reuses the result.
+///
+/// `nested_model` is the model threaded in from the enclosing annotation (the
+/// leaf model for `list[Model]`, `Some(Model)`; `None` for scalar columns).
+fn build_model_plan(
+    py: Python<'_>,
+    data_type: &DataType,
+    nested_model: Option<&PyObject>,
+) -> PyResult<ModelPlan> {
+    match data_type {
+        DataType::Struct(fields) => {
+            let model_cls = nested_model
+                .ok_or_else(|| struct_no_model_err(fields))?
+                .clone_ref(py);
+
+            // Introspect the nested model class once to resolve each field's
+            // child model (import + attribute access happen a single time here,
+            // not per row).
+            let arrowmodel = py.import("arrowmodel")?;
+            let get_nested_model_fn = arrowmodel.getattr("_get_nested_model")?;
+            let model_fields = model_cls.bind(py).getattr("model_fields")?;
+
+            let mut children: Vec<ModelPlan> = Vec::with_capacity(fields.len());
+            for field in fields.iter() {
+                let child_nested_model: Option<PyObject> =
+                    if let Ok(field_info) = model_fields.get_item(field.name()) {
+                        let annotation = field_info.getattr("annotation")?;
+                        let result = get_nested_model_fn.call1((annotation,))?;
+                        if result.is_none() {
+                            None
+                        } else {
+                            Some(result.unbind())
+                        }
+                    } else {
+                        None
+                    };
+                children.push(build_model_plan(
+                    py,
+                    field.data_type(),
+                    child_nested_model.as_ref(),
+                )?);
+            }
+            Ok(ModelPlan::Struct {
+                model: model_cls,
+                children,
+            })
+        }
+        DataType::List(field) | DataType::LargeList(field) | DataType::FixedSizeList(field, _) => {
+            // The leaf model threads through container layers unchanged; it is
+            // only consumed where a child resolves to a Struct.
+            Ok(ModelPlan::List(Box::new(build_model_plan(
+                py,
+                field.data_type(),
+                nested_model,
+            )?)))
+        }
+        DataType::Map(entries_field, _sorted) => {
+            if let DataType::Struct(fields) = entries_field.data_type() {
+                let key_plan = build_model_plan(py, fields[0].data_type(), nested_model)?;
+                let val_plan = build_model_plan(py, fields[1].data_type(), nested_model)?;
+                Ok(ModelPlan::Map(Box::new(key_plan), Box::new(val_plan)))
+            } else {
+                // The malformed-Map error is raised by prepare_extractor itself;
+                // there is no model to resolve here.
+                Ok(ModelPlan::None)
+            }
+        }
+        // Scalars, temporal, binary, union, null, etc. carry no nested model.
+        _ => Ok(ModelPlan::None),
+    }
+}
+
+/// Owned element plan for a single-child container (List/LargeList/
+/// FixedSizeList). `ModelPlan::None` when the plan carries no nested model.
+fn list_element_plan(plan: &ModelPlan, py: Python<'_>) -> ModelPlan {
+    match plan {
+        ModelPlan::List(inner) => inner.clone_ref(py),
+        _ => ModelPlan::None,
+    }
+}
+
+/// Owned (key, value) plans for a Map. `(None, None)` when the plan carries no
+/// nested model.
+fn map_kv_plans(plan: &ModelPlan, py: Python<'_>) -> (ModelPlan, ModelPlan) {
+    match plan {
+        ModelPlan::Map(k, v) => (k.clone_ref(py), v.clone_ref(py)),
+        _ => (ModelPlan::None, ModelPlan::None),
+    }
+}
+
+/// The error raised when an Arrow Struct column has no matching Pydantic model.
+fn struct_no_model_err(fields: &arrow_schema::Fields) -> PyErr {
+    let field_names: Vec<&str> = fields.iter().map(|f| f.name().as_str()).collect();
+    PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
+        "Arrow Struct column (fields: {field_names:?}) has no matching \
+         Pydantic model. Annotate the field with a BaseModel subclass, \
+         or a container of one (e.g. `MyModel`, `MyModel | None`, \
+         `list[MyModel]`), so its fields can be constructed."
+    ))
+}
+
 /// Downcast an Arrow column to a concrete typed array once, before the row loop.
 /// Returns a ColumnExtractor variant for efficient per-row value extraction.
 ///
@@ -111,11 +258,29 @@ fn import_decimal_cls(py: Python<'_>) -> PyResult<PyObject> {
 ///
 /// `nested_model` is `Some(model_cls)` when the column is a Struct that should
 /// produce a nested Pydantic model instance. `None` for all other column types.
+///
+/// This is the public entry point used per column. It resolves the nested-model
+/// plan once (the only Python introspection) and delegates to
+/// [`prepare_extractor_with_plan`]; per-row container child extractors reuse the
+/// pre-built plan and never re-enter Python.
 pub fn prepare_extractor<'a>(
     py: Python<'_>,
     col: &'a dyn Array,
     data_type: &DataType,
     nested_model: Option<&PyObject>,
+) -> PyResult<ColumnExtractor<'a>> {
+    let plan = build_model_plan(py, data_type, nested_model)?;
+    prepare_extractor_with_plan(py, col, data_type, &plan)
+}
+
+/// Build a [`ColumnExtractor`] using a pre-resolved [`ModelPlan`]. Called
+/// recursively (Struct children) and per row (container children) without any
+/// Python introspection — all model lookups are read from `plan`.
+fn prepare_extractor_with_plan<'a>(
+    py: Python<'_>,
+    col: &'a dyn Array,
+    data_type: &DataType,
+    plan: &ModelPlan,
 ) -> PyResult<ColumnExtractor<'a>> {
     match data_type {
         DataType::Int8 => Ok(ColumnExtractor::Int8(as_primitive_array::<Int8Type>(col))),
@@ -149,7 +314,7 @@ pub fn prepare_extractor<'a>(
             Ok(ColumnExtractor::List(
                 arr,
                 field.data_type().clone(),
-                nested_model.map(|m| m.clone_ref(py)),
+                list_element_plan(plan, py),
             ))
         }
         DataType::LargeList(field) => {
@@ -157,57 +322,32 @@ pub fn prepare_extractor<'a>(
             Ok(ColumnExtractor::LargeList(
                 arr,
                 field.data_type().clone(),
-                nested_model.map(|m| m.clone_ref(py)),
+                list_element_plan(plan, py),
             ))
         }
         DataType::Struct(fields) => {
-            let model_cls = nested_model
-                .ok_or_else(|| {
-                    let field_names: Vec<&str> =
-                        fields.iter().map(|f| f.name().as_str()).collect();
-                    PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
-                        "Arrow Struct column (fields: {field_names:?}) has no matching \
-                         Pydantic model. Annotate the field with a BaseModel subclass, \
-                         or a container of one (e.g. `MyModel`, `MyModel | None`, \
-                         `list[MyModel]`), so its fields can be constructed."
-                    ))
-                })?
-                .clone_ref(py);
+            // The model and each field's child plan were resolved once by
+            // build_model_plan; read them here without touching Python.
+            let (model_cls, child_plans) = match plan {
+                ModelPlan::Struct { model, children } => (model.clone_ref(py), children),
+                _ => return Err(struct_no_model_err(fields)),
+            };
             let struct_arr = as_struct_array(col);
             let mut children: Vec<(Py<PyString>, ColumnExtractor<'a>)> =
                 Vec::with_capacity(fields.len());
 
-            // Introspect the nested model class to find child struct model classes.
-            // Import the _get_nested_model helper from Python.
-            let arrowmodel = py.import("arrowmodel")?;
-            let get_nested_model_fn = arrowmodel.getattr("_get_nested_model")?;
-            let model_fields = model_cls.bind(py).getattr("model_fields")?;
-
             for (i, field) in fields.iter().enumerate() {
                 let child_col = struct_arr.column(i);
-                let field_name_str = field.name();
-
-                // Look up the child's nested model class from the Pydantic model
-                let child_nested_model: Option<PyObject> =
-                    if let Ok(field_info) = model_fields.get_item(field_name_str) {
-                        let annotation = field_info.getattr("annotation")?;
-                        let result = get_nested_model_fn.call1((annotation,))?;
-                        if result.is_none() {
-                            None
-                        } else {
-                            Some(result.unbind())
-                        }
-                    } else {
-                        None
-                    };
-
-                let child_ext = prepare_extractor(
+                // child_plans is positionally aligned with fields (both walk the
+                // Struct fields in order). Fall back to None defensively.
+                let child_plan = child_plans.get(i).unwrap_or(&ModelPlan::None);
+                let child_ext = prepare_extractor_with_plan(
                     py,
                     child_col.as_ref(),
                     field.data_type(),
-                    child_nested_model.as_ref(),
+                    child_plan,
                 )?;
-                let field_name = PyString::intern(py, field_name_str).unbind();
+                let field_name = PyString::intern(py, field.name()).unbind();
                 children.push((field_name, child_ext));
             }
             Ok(ColumnExtractor::Struct(struct_arr, children, model_cls))
@@ -292,7 +432,7 @@ pub fn prepare_extractor<'a>(
             Ok(ColumnExtractor::FixedSizeList(
                 arr,
                 field.data_type().clone(),
-                nested_model.map(|m| m.clone_ref(py)),
+                list_element_plan(plan, py),
             ))
         }
         DataType::Map(entries_field, _sorted) => {
@@ -300,12 +440,8 @@ pub fn prepare_extractor<'a>(
             if let DataType::Struct(fields) = entries_field.data_type() {
                 let key_dt = fields[0].data_type().clone();
                 let val_dt = fields[1].data_type().clone();
-                Ok(ColumnExtractor::Map(
-                    arr,
-                    key_dt,
-                    val_dt,
-                    nested_model.map(|m| m.clone_ref(py)),
-                ))
+                let (key_plan, val_plan) = map_kv_plans(plan, py);
+                Ok(ColumnExtractor::Map(arr, key_dt, val_dt, key_plan, val_plan))
             } else {
                 Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
                     "Map entries field is not a Struct",
@@ -458,17 +594,17 @@ impl<'a> ColumnExtractor<'a> {
                 }
             }
             // --- Complex types ---
-            ColumnExtractor::List(arr, child_dt, child_model) => {
+            ColumnExtractor::List(arr, child_dt, child_plan) => {
                 if arr.is_null(row) {
                     Ok(py.None())
                 } else {
                     let child_array = arr.value(row); // ArrayRef for this row's list
                     let len = child_array.len();
-                    let child_ext = prepare_extractor(
+                    let child_ext = prepare_extractor_with_plan(
                         py,
                         child_array.as_ref(),
                         child_dt,
-                        child_model.as_ref(),
+                        child_plan,
                     )?;
                     let mut items: Vec<PyObject> = Vec::with_capacity(len);
                     for j in 0..len {
@@ -477,17 +613,17 @@ impl<'a> ColumnExtractor<'a> {
                     Ok(PyList::new(py, &items)?.into_any().unbind())
                 }
             }
-            ColumnExtractor::LargeList(arr, child_dt, child_model) => {
+            ColumnExtractor::LargeList(arr, child_dt, child_plan) => {
                 if arr.is_null(row) {
                     Ok(py.None())
                 } else {
                     let child_array = arr.value(row);
                     let len = child_array.len();
-                    let child_ext = prepare_extractor(
+                    let child_ext = prepare_extractor_with_plan(
                         py,
                         child_array.as_ref(),
                         child_dt,
-                        child_model.as_ref(),
+                        child_plan,
                     )?;
                     let mut items: Vec<PyObject> = Vec::with_capacity(len);
                     for j in 0..len {
@@ -705,17 +841,17 @@ impl<'a> ColumnExtractor<'a> {
                 }
             }
             // --- Container types ---
-            ColumnExtractor::FixedSizeList(arr, child_dt, child_model) => {
+            ColumnExtractor::FixedSizeList(arr, child_dt, child_plan) => {
                 if arr.is_null(row) {
                     Ok(py.None())
                 } else {
                     let child_array = arr.value(row);
                     let len = child_array.len();
-                    let child_ext = prepare_extractor(
+                    let child_ext = prepare_extractor_with_plan(
                         py,
                         child_array.as_ref(),
                         child_dt,
-                        child_model.as_ref(),
+                        child_plan,
                     )?;
                     let mut items: Vec<PyObject> = Vec::with_capacity(len);
                     for j in 0..len {
@@ -724,19 +860,20 @@ impl<'a> ColumnExtractor<'a> {
                     Ok(PyList::new(py, &items)?.into_any().unbind())
                 }
             }
-            ColumnExtractor::Map(arr, key_dt, val_dt, entry_model) => {
+            ColumnExtractor::Map(arr, key_dt, val_dt, key_plan, val_plan) => {
                 if arr.is_null(row) {
                     Ok(py.None())
                 } else {
                     let entries = arr.value(row);
                     let keys_arr = entries.column(0);
                     let vals_arr = entries.column(1);
-                    // The nested model is applied to whichever side resolves to a
-                    // Struct; non-Struct children ignore it.
+                    // Each side uses its own pre-resolved plan (key_plan /
+                    // val_plan); the plan is non-None wherever the side is a
+                    // Struct, empty otherwise. No per-row Python introspection.
                     let key_ext =
-                        prepare_extractor(py, keys_arr.as_ref(), key_dt, entry_model.as_ref())?;
+                        prepare_extractor_with_plan(py, keys_arr.as_ref(), key_dt, key_plan)?;
                     let val_ext =
-                        prepare_extractor(py, vals_arr.as_ref(), val_dt, entry_model.as_ref())?;
+                        prepare_extractor_with_plan(py, vals_arr.as_ref(), val_dt, val_plan)?;
                     let len = entries.len();
                     let mut items: Vec<PyObject> = Vec::with_capacity(len);
                     for j in 0..len {
@@ -768,7 +905,8 @@ impl<'a> ColumnExtractor<'a> {
                                 "Unknown union type_id: {tid}"
                             ))
                         })?;
-                    let child_ext = prepare_extractor(py, child.as_ref(), child_dt, None)?;
+                    let child_ext =
+                        prepare_extractor_with_plan(py, child.as_ref(), child_dt, &ModelPlan::None)?;
                     child_ext.extract_value(py, child_idx)
                 }
             }
@@ -944,17 +1082,17 @@ impl<'a> ColumnExtractor<'a> {
                 }
             }
             // --- Complex types ---
-            ColumnExtractor::List(arr, child_dt, child_model) => {
+            ColumnExtractor::List(arr, child_dt, child_plan) => {
                 if arr.is_null(row) {
                     Ok(Value::Null)
                 } else {
                     let child_array = arr.value(row);
                     let len = child_array.len();
-                    let child_ext = prepare_extractor(
+                    let child_ext = prepare_extractor_with_plan(
                         py,
                         child_array.as_ref(),
                         child_dt,
-                        child_model.as_ref(),
+                        child_plan,
                     )?;
                     let mut items: Vec<Value> = Vec::with_capacity(len);
                     for j in 0..len {
@@ -963,17 +1101,17 @@ impl<'a> ColumnExtractor<'a> {
                     Ok(Value::Array(items))
                 }
             }
-            ColumnExtractor::LargeList(arr, child_dt, child_model) => {
+            ColumnExtractor::LargeList(arr, child_dt, child_plan) => {
                 if arr.is_null(row) {
                     Ok(Value::Null)
                 } else {
                     let child_array = arr.value(row);
                     let len = child_array.len();
-                    let child_ext = prepare_extractor(
+                    let child_ext = prepare_extractor_with_plan(
                         py,
                         child_array.as_ref(),
                         child_dt,
-                        child_model.as_ref(),
+                        child_plan,
                     )?;
                     let mut items: Vec<Value> = Vec::with_capacity(len);
                     for j in 0..len {
@@ -1242,17 +1380,17 @@ impl<'a> ColumnExtractor<'a> {
                 }
             }
             // --- Container types ---
-            ColumnExtractor::FixedSizeList(arr, child_dt, child_model) => {
+            ColumnExtractor::FixedSizeList(arr, child_dt, child_plan) => {
                 if arr.is_null(row) {
                     Ok(Value::Null)
                 } else {
                     let child_array = arr.value(row);
                     let len = child_array.len();
-                    let child_ext = prepare_extractor(
+                    let child_ext = prepare_extractor_with_plan(
                         py,
                         child_array.as_ref(),
                         child_dt,
-                        child_model.as_ref(),
+                        child_plan,
                     )?;
                     let mut items: Vec<Value> = Vec::with_capacity(len);
                     for j in 0..len {
@@ -1261,7 +1399,7 @@ impl<'a> ColumnExtractor<'a> {
                     Ok(Value::Array(items))
                 }
             }
-            ColumnExtractor::Map(arr, key_dt, val_dt, entry_model) => {
+            ColumnExtractor::Map(arr, key_dt, val_dt, key_plan, val_plan) => {
                 if arr.is_null(row) {
                     Ok(Value::Null)
                 } else {
@@ -1269,9 +1407,9 @@ impl<'a> ColumnExtractor<'a> {
                     let keys_arr = entries.column(0);
                     let vals_arr = entries.column(1);
                     let key_ext =
-                        prepare_extractor(py, keys_arr.as_ref(), key_dt, entry_model.as_ref())?;
+                        prepare_extractor_with_plan(py, keys_arr.as_ref(), key_dt, key_plan)?;
                     let val_ext =
-                        prepare_extractor(py, vals_arr.as_ref(), val_dt, entry_model.as_ref())?;
+                        prepare_extractor_with_plan(py, vals_arr.as_ref(), val_dt, val_plan)?;
                     let len = entries.len();
                     let mut items: Vec<Value> = Vec::with_capacity(len);
                     for j in 0..len {
@@ -1302,7 +1440,8 @@ impl<'a> ColumnExtractor<'a> {
                                 "Unknown union type_id: {tid}"
                             ))
                         })?;
-                    let child_ext = prepare_extractor(py, child.as_ref(), child_dt, None)?;
+                    let child_ext =
+                        prepare_extractor_with_plan(py, child.as_ref(), child_dt, &ModelPlan::None)?;
                     child_ext.extract_json_value(py, child_idx)
                 }
             }

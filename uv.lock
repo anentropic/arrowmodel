@@ -77,14 +77,14 @@ dev = [
     { name = "ipython", specifier = ">=9.13.0" },
     { name = "pdbpp", specifier = ">=0.12.0.post1" },
     { name = "pyarrow", specifier = ">=24.0.0" },
-    { name = "pyarrow-stubs", specifier = ">=20.0.0.20251215" },
+    { name = "pyarrow-stubs", specifier = ">=20.0.0.20260625" },
     { name = "pytest", specifier = ">=9.0.3" },
     { name = "pytest-benchmark", specifier = ">=5.2.3" },
     { name = "pytest-cov", specifier = ">=6.0.0" },
     { name = "ruff", specifier = ">=0.15.12" },
 ]
 docs = [
-    { name = "shibuya", specifier = ">=2025.1" },
+    { name = "shibuya", specifier = ">=2026.5.19" },
     { name = "sphinx", specifier = ">=8.0" },
     { name = "sphinx-autoapi", specifier = ">=3.4" },
     { name = "sphinx-autobuild", specifier = ">=2024.10" },
@@ -763,14 +763,14 @@ wheels = [
 
 [[package]]
 name = "pyarrow-stubs"
-version = "20.0.0.20251215"
+version = "20.0.0.20260625"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyarrow" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/30/16/ca991ada0416dc02c246e4b3c853f35053676eb704c63720ef24547d2d68/pyarrow_stubs-20.0.0.20251215.tar.gz", hash = "sha256:92c1fda4998f0c13e608d8abc7e4b8537e3ef108f6bf42c58e5af97e7d143e75", size = 236578, upload-time = "2025-12-15T06:47:46.187Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ff/7d/a3eadf94131428ec61b44bc40a52acca2b093bf0f6a90a0596c44aa9fe62/pyarrow_stubs-20.0.0.20260625.tar.gz", hash = "sha256:cae81ae0900d0710e5b8a6271fef34ccfacb08663bb5f805d94f129baf13130e", size = 237707, upload-time = "2026-06-25T07:27:47.496Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b3/7c/a467f91c6c3aa4c34d5a1dafca9ae4db01b757877577d6b0ae04908a0180/pyarrow_stubs-20.0.0.20251215-py3-none-any.whl", hash = "sha256:0634e70388cd23e7c78e2abbb1989822edc34df2d2ff4fd50a2316dd0cdafd9f", size = 235697, upload-time = "2025-12-15T06:47:44.643Z" },
+    { url = "https://files.pythonhosted.org/packages/29/65/00bb68d5951a1b758646fd33bca1735aebb6d9ed7184f260e1c1d17e6d97/pyarrow_stubs-20.0.0.20260625-py3-none-any.whl", hash = "sha256:26d8b6c0fa9d61ae49ad70d59988d8b88e2fe022cd782dd3333bcd33e6066486", size = 235701, upload-time = "2026-06-25T07:27:48.793Z" },
 ]
 
 [[package]]
@@ -1078,16 +1078,16 @@ wheels = [
 
 [[package]]
 name = "shibuya"
-version = "2026.1.9"
+version = "2026.5.19"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pygments-styles" },
     { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1d/b2/b94cb04adbb984973fe83fd670dd066514610241d829723f678366e691d2/shibuya-2026.1.9.tar.gz", hash = "sha256:b389f10fd9c07b048e940f32d1e1ac096a2d49736389173ac771b37a10b51fdf", size = 86002, upload-time = "2026-01-09T02:19:14.365Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/94/eb/9de0c2a5691c96e77823ec0582b34ab1f38830530bcb12103ce8d880c205/shibuya-2026.5.19.tar.gz", hash = "sha256:f39e012e945ecb93f8aeaeab48e7bfaa204d570fe86796034a1f01fe4f1a3709", size = 86198, upload-time = "2026-05-19T11:38:13.443Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/37/ae/06d7dfc5633c7250fefc61fd624990aa2c37e3495c08a2f23968b1acb23e/shibuya-2026.1.9-py3-none-any.whl", hash = "sha256:b58a3cc6e5619c71d00fcf0be4a3060c87040c2a62a1b3f1a93a6a41ca8eaf45", size = 103389, upload-time = "2026-01-09T02:19:12.798Z" },
+    { url = "https://files.pythonhosted.org/packages/c4/82/482a2e77a79a8ebc2f40d8e38cc186f2a72f2bf003c8e7395c3eefb9bc3f/shibuya-2026.5.19-py3-none-any.whl", hash = "sha256:7e94f6d5d9e269510138f4742c993c875beaa32344bf5fc55d104bc89e62028e", size = 103556, upload-time = "2026-05-19T11:38:11.71Z" },
 ]
 
 [[package]]

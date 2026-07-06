@@ -8,24 +8,24 @@ authors = [
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "pydantic>=2.11",
+    "pydantic>=2.13.4",
 ]
 
 [build-system]
-requires = ["maturin>=1.12,<2.0"]
+requires = ["maturin>=1.13.1,<2.0"]
 build-backend = "maturin"
 
 [dependency-groups]
 dev = [
-    "basedpyright>=1.38.0",
-    "ipython>=9.10.0",
+    "basedpyright>=1.39.3",
+    "ipython>=9.13.0",
     "pdbpp>=0.12.0.post1",
-    "pyarrow>=23.0.1",
+    "pyarrow>=24.0.0",
     "pyarrow-stubs>=20.0.0.20251215",
-    "pytest>=8.0.0",
+    "pytest>=9.0.3",
     "pytest-benchmark>=5.2.3",
     "pytest-cov>=6.0.0",
-    "ruff>=0.15.1",
+    "ruff>=0.15.12",
 ]
 docs = [
     "sphinx>=8.0",

@@ -1,4 +1,17 @@
-# arrowdantic
+# arrowmodel
+
+## Current State
+
+**Shipped: v1.0.0 "Core Library" (2026-07-05).** The complete Arrow→Pydantic
+conversion engine: full Arrow DataType coverage, alias resolution, fast
+(`model_construct`) and validated (`model_validate_json`) paths, a lazy
+iterator API, and type stubs. 193 tests passing; docs build clean (sphinx,
+strict). Package versioned at 1.0.0 and release-ready.
+
+**Next milestone candidate:** the schema-model bridge exploration — deriving
+Pydantic models from Arrow schemas (and vice versa), and how arrowmodel relates
+to Patito/Poldantic/Pandera/pydantic-to-pyarrow. Deferred idea, not yet scoped;
+define via `/gsd-new-milestone`.
 
 ## What This Is
 
@@ -12,26 +25,40 @@ Dict-free, single-step conversion from Arrow buffers to Pydantic model instances
 
 ### Validated
 
-(None yet — ship to validate)
+- ✓ Rust/PyO3 extension module built with maturin, importable as `arrowmodel._core` — Phase 1
+- ✓ Arrow C Data Interface for zero-copy buffer handoff (via `pyo3-arrow`) — Phase 1
+- ✓ `ArrowModelConverter` class that cross-references Arrow schema against Pydantic model fields at construction time — Phase 2
+- ✓ Schema cross-referencing compiled once at converter init, not per batch — Phase 2
+- ✓ Fast path (default): `model_construct` with no Pydantic validation, dict-free row construction — Phase 2
+- ✓ Null handling via Arrow validity bitmap — check before extract, emit `None` for null values — Phase 2
+- ✓ Primitive type coverage: Int8–64, UInt8–64, Float32/64, Boolean, Utf8/LargeUtf8 — Phase 2
+- ✓ Benchmark: ~1.7x faster than to_pylist() + model_construct at 100k rows — Phase 2
+- ✓ Pydantic v2 alias resolution: `validation_alias` > `alias` > `field_name` priority, with `populate_by_name`/`validate_by_name` support — Phase 3
+- ✓ Schema error handling: `ValueError` before row processing for missing required fields; extra Arrow columns silently ignored — Phase 3
+- ✓ Accept both pyarrow `RecordBatch` and `Table` (Rust-side multi-batch iteration via `convert_table`) — Phase 3
+- ✓ `from_arrow(Model, data)` convenience one-shot function — Phase 3
+- ✓ Pre-interned Python field name strings reused across all rows and batches — Phase 3
+- ✓ Temporal types: Date32 → `datetime.date`, Timestamp → naive/aware `datetime.datetime` (IANA tz via `zoneinfo.ZoneInfo`), Duration → `datetime.timedelta` — Phase 4
+- ✓ Nanosecond timestamps truncated to microsecond precision (Python's max) — Phase 4
+- ✓ List/LargeList → Python `list` with recursive element type handling — Phase 4
+- ✓ Struct → nested Pydantic `BaseModel` via recursive `model_construct` in Rust — Phase 4
+- ✓ Dictionary arrays transparently decoded to value type via `arrow_cast::cast` — Phase 4
+- ✓ Null type → `None` for every row — Phase 4
+- ✓ Validated path (`validate=True`): serde_json row serialisation → `model_validate_json` for full Pydantic validation — Phase 5
+- ✓ Iterator/generator API for lazy model yielding (per-batch granularity) — Phase 5
+- ✓ Type stubs (`_core.pyi`) for the Rust extension module — Phase 5
+- ✓ basedpyright strict mode without suppressions — Phase 5
+- ✓ Extended scalar types: Float16, Decimal128/256/32/64, Date64, Time32/Time64 — Phase 6
+- ✓ Binary types: Binary, LargeBinary, FixedSizeBinary, Utf8View, BinaryView — Phase 6
+- ✓ Interval types → `tuple[int, int, int]` (months, days, nanos) — Phase 6
+- ✓ FixedSizeList → Python `list` — Phase 6
+- ✓ Map → `list[tuple[K, V]]` matching pyarrow convention — Phase 6
+- ✓ RunEndEncoded → pre-unpacked to value type (like Dictionary) — Phase 6
+- ✓ Union (sparse + dense) → value from active variant per row — Phase 6
 
 ### Active
 
-- [ ] Rust/PyO3 extension module built with maturin, importable as `arrowdantic._core`
-- [ ] `ArrowModelConverter` class that cross-references Arrow schema against Pydantic model fields at construction time
-- [ ] Schema cross-referencing compiled once at converter init, not per batch
-- [ ] Full support for Pydantic v2 field aliases and `validation_alias` (resolution priority: validation_alias > alias > field_name)
-- [ ] `populate_by_name` support — accept both alias and field name when enabled
-- [ ] Fast path (default): `model_construct` with no Pydantic validation, dict-free row construction
-- [ ] Validated path (`validate=True`): serde_json row serialisation → `validate_json` for full Pydantic validation
-- [ ] Accept both pyarrow `RecordBatch` and `Table` as input (iterate batches internally for Table)
-- [ ] Arrow C Data Interface for zero-copy buffer handoff (via `pyo3-arrow`)
-- [ ] Full Arrow type coverage: Int8–64, UInt8–64, Float32/64, Boolean, Utf8/LargeUtf8, Date32, Timestamp (naive + aware), Duration, List/LargeList, Struct (recursive nested models), Dictionary, Null
-- [ ] Null handling via Arrow validity bitmap — check before extract, emit `None` for null values
-- [ ] `ValueError` at converter construction for: missing required fields, unresolvable types, ambiguous matches
-- [ ] Extra Arrow columns silently ignored (no error for unmapped columns)
-- [ ] Convenience `from_arrow(Model, batch)` one-shot function
-- [ ] Pre-interned Python field name strings reused across rows (no per-row string allocation)
-- [ ] Type stubs (`_core.pyi`) for the Rust extension
+(No active requirements — v1.0.0 milestone complete)
 
 ### Out of Scope
 
@@ -39,7 +66,7 @@ Dict-free, single-step conversion from Arrow buffers to Pydantic model instances
 - Arrow writing (Pydantic → Arrow) — read-only for v1
 - ORM or database layer integration — this is a data conversion library
 - `AliasPath` and `AliasGenerator` support — complex alias resolution deferred, raise `NotImplementedError` if encountered
-- `FixedSizeList` mapping — needs resolution heuristic (list vs tuple vs ndarray), deferred
+- `FixedSizeList` mapping heuristic (list vs tuple vs ndarray) — resolved as list in Phase 6
 - `strict=True` mode for extra columns — document silent-ignore behaviour, add strict flag later
 - Polars-specific handling — Polars exports via C Data Interface so it works, but no Polars-specific code paths
 - Replacing pyarrow or Polars for general Arrow work
@@ -49,8 +76,9 @@ Dict-free, single-step conversion from Arrow buffers to Pydantic model instances
 - **Arrow C Data Interface** is the interop standard — two raw pointers (`ArrowArray*`, `ArrowSchema*`) passed across the FFI boundary. The `pyo3-arrow` crate wraps this for PyO3.
 - **`model_construct`** bypasses pydantic-core validation entirely — correct for trusted Arrow pipelines. The validated path uses `serde_json` → `validate_json` to keep validation in Rust (pydantic-core's `jiter` + `SchemaValidator`).
 - Arrow stores nulls as a separate validity bitmap, not sentinel values. The value buffer at null indices is undefined and must not be read.
-- The conventional path (`to_pylist()` + Model construction) materialises the full dataset as Python dicts — significant allocation pressure for large batches that arrowdantic eliminates.
+- The conventional path (`to_pylist()` + Model construction) materialises the full dataset as Python dicts — significant allocation pressure for large batches that arrowmodel eliminates.
 - Primary comparison target: `to_pylist()` + `model_construct()` in a Python loop (what a careful user writes today).
+- **As shipped in v1.0.0:** 193 tests passing; ~1.7x faster than `to_pylist()` + `model_construct` at 100k rows; full Arrow DataType coverage across both conversion paths; docs migrated to sphinx (Diataxis structure). Package renamed from `arrowdantic` (name taken on PyPI) to `arrowmodel`; version 1.0.0.
 
 ## Constraints
 
@@ -64,11 +92,18 @@ Dict-free, single-step conversion from Arrow buffers to Pydantic model instances
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Use `pyo3-arrow` for C Data Interface | Ergonomic PyO3 wrapper, avoids manual FFI pointer handling | — Pending |
-| Schema cross-reference in Python, hot loop in Rust | `model_fields` introspection is easy in Python; Rust loop avoids per-row Python overhead | — Pending |
-| Validated path via serde_json → validate_json | Keeps both serialisation and validation in Rust (pydantic-core), avoids Python dict intermediate | — Pending |
-| Silently ignore extra Arrow columns | Matches common data pipeline patterns; strict mode deferred | — Pending |
-| Pre-intern Python field name strings | Eliminates per-row string allocation in the hot loop | — Pending |
+| Use `pyo3-arrow` for C Data Interface | Ergonomic PyO3 wrapper, avoids manual FFI pointer handling | Validated Phase 1-5 |
+| Schema cross-reference in Python, hot loop in Rust | `model_fields` introspection is easy in Python; Rust loop avoids per-row Python overhead | Validated Phase 2-3 |
+| Validated path via serde_json → model_validate_json | Keeps serialisation in Rust, validation in pydantic-core; avoids Python dict intermediate | Validated Phase 5 |
+| Silently ignore extra Arrow columns | Matches common data pipeline patterns; strict mode deferred | Validated Phase 3 |
+| Pre-intern Python field name strings | Eliminates per-row string allocation in the hot loop | Validated Phase 3 |
+| Alias resolution in Python, not Rust | Pydantic's `model_fields`/`FieldInfo` trivially introspectable in Python; no Pydantic logic recreation needed | Validated Phase 3 |
+| Schema validation at convert() time, not init | No Arrow schema available at init; each batch may have different column order | Validated Phase 3 |
+| Interval types → (months, days, nanos) i64 tuple | Uniform shape across all 3 Arrow interval variants | Validated Phase 6 |
+| Union dispatch via `offsets()` presence | Distinguishes sparse vs dense unions without extra metadata | Validated Phase 6 |
+| RunEndEncoded pre-unpacked like Dictionary | Reuses the existing unpack path; avoids per-row REE decoding in the hot loop | Validated Phase 6 |
+| `from_arrow(validate=False)` default | Preserves fast-path backward compatibility while adding validated-path symmetry | Validated Phase 7 |
+| Rename package `arrowdantic` → `arrowmodel` | Original name taken on PyPI | Done (quick task 260705-ti7) |
 
 ## Evolution
 
@@ -88,4 +123,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-21 after initialization*
+*Last updated: 2026-07-05 after v1.0.0 "Core Library" milestone (shipped, renamed to arrowmodel, version 1.0.0, 193 tests)*

@@ -1,3 +1,18 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0.0
+milestone_name: milestone
+status: Awaiting next milestone
+last_updated: "2026-07-06T00:00:00.000Z"
+last_activity: 2026-07-06 — Quick 260706-nlm: PR #16 review fixes + list[NestedModel] support (on gsd/v1.0-milestone, PR not yet merged)
+progress:
+  total_phases: 7
+  completed_phases: 7
+  total_plans: 16
+  completed_plans: 16
+  percent: 100
+---
+
 # Project State
 
 ## Project Reference
@@ -5,20 +20,19 @@
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Dict-free, single-step conversion from Arrow buffers to Pydantic model instances
-**Current focus:** Phase 1 - Build Foundation
+**Current focus:** Phase 07 — test-coverage-and-api-completeness
 
 ## Current Position
 
-Phase: 1 of 5 (Build Foundation)
-Plan: 0 of ? in current phase
-Status: Ready to plan
-Last activity: 2026-03-21 -- Roadmap revised (split Core Conversion into Spike & Benchmark + Core Conversion)
-
-Progress: [░░░░░░░░░░] 0%
+Phase: Milestone v1.0.0 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-05 — Milestone v1.0.0 completed and archived
 
 ## Performance Metrics
 
 **Velocity:**
+
 - Total plans completed: 0
 - Average duration: -
 - Total execution time: 0 hours
@@ -30,10 +44,27 @@ Progress: [░░░░░░░░░░] 0%
 | - | - | - | - |
 
 **Recent Trend:**
+
 - Last 5 plans: -
 - Trend: -
 
 *Updated after each plan completion*
+| Phase 01 P01 | 5min | 2 tasks | 6 files |
+| Phase 01 P02 | 2min | 2 tasks | 5 files |
+| Phase 02 P01 | 4min | 2 tasks | 3 files |
+| Phase 02 P02 | 4min | 2 tasks | 5 files |
+| Phase 03-core-conversion P01 | 5min | 2 tasks | 2 files |
+| Phase 03-core-conversion P02 | 4min | 2 tasks | 3 files |
+| Phase 04-extended-types P01 | 5min | 2 tasks | 5 files |
+| Phase 04-extended-types P02 | 5min | 2 tasks | 5 files |
+| Phase 05-validated-path-and-api-polish P01 | 5min | 1 tasks | 4 files |
+| Phase 05 P02 | 5min | 2 tasks | 4 files |
+| Phase 06-support-all-pyarrow-types P01 | 10min | 2 tasks | 4 files |
+| Phase 06-support-all-pyarrow-types P02 | 3min | 2 tasks | 4 files |
+| Phase 06-support-all-pyarrow-types P04 | 1min | 1 tasks | 1 files |
+| Phase 06 P03 | 3min | 2 tasks | 3 files |
+| Phase 07 P02 | 2min | 1 tasks | 2 files |
+| Phase 07 P01 | 7min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -46,17 +77,93 @@ Recent decisions affecting current work:
 - [Roadmap]: Pre-interned strings (FAST-02) assigned to Phase 3 with full core conversion
 - [Roadmap]: Phase 2 is a minimal spike to prove performance hypothesis before committing to full implementation
 - [Roadmap]: Spike includes only field-name matching (no aliases), primitive types, null handling, model_construct, RecordBatch input, and a benchmark script
+- [Phase 01]: Used rust/ directory layout for clean separation of Python src/ and Rust src/
+- [Phase 01]: Used PyO3 0.28 declarative #[pymodule] syntax, pyo3-arrow 0.17, arrow-rs 58 version matrix
+- [Phase 01]: Set pydantic>=2.11 floor (not >=2.0) for validate_by_name/validate_by_alias support
+- [Phase 01]: Organized tests into 3 classes by requirement area (TestBuildConfig, TestModuleImport, TestPyCapsuleRoundTrip)
+- [Phase 01]: Used dtolnay/rust-toolchain@stable and Cargo registry caching in CI workflows
+- [Phase 02]: Schema matching at convert() time (not init) because each batch may have different column order
+- [Phase 02]: model_construct via call_method with kwargs PyDict for correct kwargs unpacking
+- [Phase 02]: Runtime PyString::intern for field names (not intern\! macro which requires compile-time literals)
+- [Phase 02]: Collect into Vec<PyObject> then PyList::new for pre-allocated result list
+- [Phase 02]: Models defined in test file (not conftest) to avoid pytest conftest import issues
+- [Phase 02]: Benchmark measures convert() only, batch creation in setup (fair comparison per Pitfall 4)
+- [Phase 02]: Arrowdantic ~1.7x faster than to_pylist+model_construct at 100k rows (276ms vs 478ms)
+- [Phase 03-core-conversion]: Schema validation stays at convert() time per Phase 2 decision -- SCHEMA-03 interpreted as before row processing
+- [Phase 03-core-conversion]: _build_field_map is module-level for testability; _resolve_columns uses resolved_fields set for populate_by_name
+- [Phase 03-core-conversion]: Duck-type dispatch (hasattr to_batches) for Table vs RecordBatch to avoid pyarrow runtime dep
+- [Phase 03-core-conversion]: convert_table interns field name strings once, shares across all batches (FAST-02)
+- [Phase 03-core-conversion]: from_arrow creates temporary ArrowModelConverter -- one-shot use, no caching
+- [Phase 04-extended-types]: Enable pyo3 chrono feature for automatic NaiveDate/NaiveDateTime/TimeDelta -> Python datetime conversion
+- [Phase 04-extended-types]: Pre-unpack dictionary columns in lib.rs before building extractors to solve lifetime ownership
+- [Phase 04-extended-types]: Cache ZoneInfo per batch in TimestampAware variant, not per row
+- [Phase 04-extended-types]: Replace col_indices+field_names with field_specs tuples for passing nested model classes to Rust
+- [Phase 04-extended-types]: Recursive struct introspection: Rust calls Python _get_nested_model for child struct model classes
+- [Phase 04-extended-types]: Temporary extractor per list row to solve ListArray.value() ownership lifetime
+- [Phase 05-validated-path-and-api-polish]: Validated path: serde_json row serialization -> PyBytes -> model_validate_json for full Pydantic validation
+- [Phase 05-validated-path-and-api-polish]: NaN/Infinity floats serialize as JSON null (not error) in validated path
+- [Phase 05-validated-path-and-api-polish]: Tz-aware timestamps append +00:00 in JSON for Pydantic to produce aware datetimes
+- [Phase 05]: Use typing.cast for Table/RecordBatch narrowing instead of isinstance (preserves duck-typing)
+- [Phase 05]: Scope pyarrow-stub pyright rules to tests/ via executionEnvironments (src/ fully strict)
+- [Phase 05]: Use Sequence in _core.pyi stubs for covariant field_specs parameter
+- [Phase 06-support-all-pyarrow-types]: Decimal types use value_as_string for precision-preserving Python Decimal conversion
+- [Phase 06-support-all-pyarrow-types]: Time types decompose raw int to h/m/s/us for PyTime; ns truncated to us
+- [Phase 06-support-all-pyarrow-types]: Binary validated path uses base64 encoding; Pydantic receives as UTF-8 bytes
+- [Phase 06-support-all-pyarrow-types]: View type fixtures use >12-byte values to avoid pyarrow inline StringView segfault
+- [Phase 06-support-all-pyarrow-types]: Interval types normalize to (months, days, nanos) i64 tuple for all 3 variants
+- [Phase 06-support-all-pyarrow-types]: Union dispatch uses arr.offsets() presence to determine sparse vs dense mode
+- [Phase 06-support-all-pyarrow-types]: REE pre-unpacking mirrors Dictionary pattern in unpack_columns via arrow_cast::cast
+- [Phase 06-support-all-pyarrow-types]: All 17 EXT-* requirements marked complete and added to traceability table; v2 Extended Types renamed to Extended Types (Future)
+- [Phase 06]: RunEndEncoded count is 5 not 6 in lib.rs: unpack_columns has 1 arm (not 2 as plan estimated)
+- [Phase 07]: Default validate=False on from_arrow preserves backward compatibility
+- [Phase 07]: Used C Data Interface export/re-import with format string override for IntervalYearMonth/DayTime arrays since pyarrow has no public constructors
+- [Quick 260404-1uo]: Used __pydantic_init_subclass__ instead of __init_subclass__ for ArrowModel converter creation (model_fields empty during __init_subclass__)
+- [Quick 260706-nlm]: tz-aware fast path must build the UTC instant then astimezone(tz) — attaching ZoneInfo to the UTC wall-clock shifts the instant by the zone offset
+- [Quick 260706-nlm]: Nested models inside containers work by threading the leaf model through List/FixedSizeList/Map extractors; consumed only when a child is a Struct, so it propagates through nested containers safely
+- [Quick 260706-nlm]: Map stays list[tuple[K, V]] (lossless for non-string/duplicate keys); a dict-annotated field over a Map column raises an actionable TypeError
 
 ### Pending Todos
 
-None yet.
+1. **Explore schema-model bridge ecosystem** (general) — research Patito/Poldantic/Pandera/pydantic-to-pyarrow, design Arrow↔Pydantic schema bridge
+
+_(Resolved: "Rename package — arrowdantic name taken" — completed in quick task 260705-ti7; new name is `arrowmodel`.)_
 
 ### Blockers/Concerns
 
 None yet.
 
+### Roadmap Evolution
+
+- Phase 6 added: Support all pyarrow types
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260322-k1b | Add nested 10-level struct benchmark to bench_convert.py | 2026-03-22 | 4d85542 | [260322-k1b-update-benchmarks-bench-convert-py-with-](./quick/260322-k1b-update-benchmarks-bench-convert-py-with-/) |
+| 260404-1uo | ArrowModel base class with convert/iter classmethods | 2026-04-04 | 2d497aa | [260404-1uo-arrowmodel-base-class-with-convert-and-i](./quick/260404-1uo-arrowmodel-base-class-with-convert-and-i/) |
+| 260705-ti7 | Complete package rename arrowdantic → arrowmodel (remaining references and filenames) | 2026-07-05 | f78b972 | [260705-ti7-complete-package-rename-arrowdantic-to-a](./quick/260705-ti7-complete-package-rename-arrowdantic-to-a/) |
+| 260706-nlm | PR #16 review fixes + list[NestedModel] container support (retroactive capture) | 2026-07-06 | 5ed2de2, 810897b, 2ec2198 | [260706-nlm-pr16-review-fixes-and-list-of-model](./quick/260706-nlm-pr16-review-fixes-and-list-of-model/) |
+| 260706-svw | PR #16 follow-up fixes: best-effort _arrow_is_map + precompute nested-model tree (no per-row Python) | 2026-07-06 | 9dccb12, 89b8aed | [260706-svw-pr16-followup-fixes-robust-arrow-is-map-](./quick/260706-svw-pr16-followup-fixes-robust-arrow-is-map-/) |
+
+## Deferred Items
+
+Items acknowledged and deferred at v1.0.0 milestone close on 2026-07-05:
+
+| Category | Item | Status |
+|----------|------|--------|
+| todo | explore-schema-model-bridge-ecosystem | pending (future-milestone research idea; not v1.0.0 scope) |
+
+Note: the two quick tasks flagged by the pre-close audit (260322-k1b, 260404-1uo) are already complete — see the Quick Tasks Completed table. They were flagged only because their older SUMMARY.md files predate the `status:` frontmatter convention.
+
 ## Session Continuity
 
-Last session: 2026-03-21
-Stopped at: Roadmap revised, ready to plan Phase 1
+Last session: 2026-04-04T00:31:39Z
+Last activity: 2026-07-05
 Resume file: None
+
+## Operator Next Steps
+
+- Land PR #16 (`gsd/v1.0-milestone` → `main`), then create the `v1.0.0` tag — it now
+  carries quick task 260706-nlm (review fixes + `list[NestedModel]` support).
+- Then start the next milestone with /gsd-new-milestone (schema-model bridge research todo).

@@ -1,7 +1,7 @@
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
 
-**arrowdantic**
+**arrowmodel**
 
 A Python library with a Rust core (via PyO3/maturin) that converts Apache Arrow `RecordBatch` and `Table` objects directly into lists of Pydantic v2 model instances. It eliminates the intermediate Python dict representation that arises from `to_pylist()` + Pydantic construction, replacing a two-step materialisation with a single tight Rust loop over Arrow buffers accessed via the Arrow C Data Interface.
 

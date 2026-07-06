@@ -1,0 +1,69 @@
+version: 1
+
+source_terms:
+  - canonical: "ArrowModel"
+    variants: []
+    source: "class ArrowModel in src/arrowmodel/__init__.py"
+  - canonical: "ArrowModelConverter"
+    variants: []
+    source: "class ArrowModelConverter in src/arrowmodel/__init__.py"
+  - canonical: "model_convert"
+    variants: []
+    source: "def model_convert in src/arrowmodel/__init__.py"
+  - canonical: "model_iter"
+    variants: []
+    source: "def model_iter in src/arrowmodel/__init__.py"
+  - canonical: "model_construct"
+    variants: []
+    source: "Pydantic BaseModel.model_construct"
+  - canonical: "model_validate_json"
+    variants: []
+    source: "Pydantic BaseModel.model_validate_json"
+  - canonical: "validation_alias"
+    variants: []
+    source: "Pydantic Field(validation_alias=...)"
+  - canonical: "populate_by_name"
+    variants: []
+    source: "Pydantic ConfigDict(populate_by_name=...)"
+  - canonical: "validate_by_name"
+    variants: []
+    source: "Pydantic ConfigDict(validate_by_name=...)"
+  - canonical: "RecordBatch"
+    variants: []
+    source: "pyarrow.RecordBatch"
+  - canonical: "Table"
+    variants: []
+    source: "pyarrow.Table"
+  - canonical: "field_map"
+    variants: ["field mapping"]
+    source: "_field_map attribute and _build_field_map function in src/arrowmodel/__init__.py"
+  - canonical: "fast path"
+    variants: []
+    source: "validate=False default behavior"
+  - canonical: "validated path"
+    variants: ["validated mode"]
+    source: "validate=True behavior"
+
+proper_nouns:
+  - canonical: "Polars"
+    variants: []
+  - canonical: "Pydantic"
+    variants: []
+  - canonical: "FastAPI"
+    variants: []
+  - canonical: "pyarrow"
+    variants: []
+  - canonical: "nanoarrow"
+    variants: []
+  - canonical: "GitHub"
+    variants: []
+
+project_terms:
+  - canonical: "Arrow C Data Interface"
+    variants: ["C Data Interface"]
+  - canonical: "Arrow PyCapsule Interface"
+    variants: ["Arrow PyCapsule interface", "PyCapsule interface", "PyCapsule"]
+  - canonical: "arrowmodel"
+    variants: []
+
+overrides: {}

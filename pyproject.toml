@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [build-system]
-requires = ["maturin>=1.13.1,<2.0"]
+requires = ["maturin>=1.14.1,<2.0"]
 build-backend = "maturin"
 
 [dependency-groups]
@@ -21,7 +21,7 @@ dev = [
     "ipython>=9.13.0",
     "pdbpp>=0.12.0.post1",
     "pyarrow>=24.0.0",
-    "pyarrow-stubs>=20.0.0.20251215",
+    "pyarrow-stubs>=20.0.0.20260625",
     "pytest>=9.0.3",
     "pytest-benchmark>=5.2.3",
     "pytest-cov>=6.0.0",
@@ -29,7 +29,7 @@ dev = [
 ]
 docs = [
     "sphinx>=8.0",
-    "shibuya>=2025.1",
+    "shibuya>=2026.5.19",
     "sphinx-autoapi>=3.4",
     "sphinx-copybutton>=0.5",
     "sphinx-design>=0.6",

@@ -55,9 +55,10 @@ jobs:
 
   deploy:
     name: Deploy to GitHub Pages
-    # Deploy only from main; on PRs the build job validates the docs without
-    # publishing to GitHub Pages.
-    if: github.event_name != 'pull_request'
+    # Deploy only from the main branch. Gating on the ref (not just the event)
+    # also prevents a workflow_dispatch run from a non-main branch from
+    # publishing to Pages; PRs are excluded too (their ref is refs/pull/*/merge).
+    if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 5

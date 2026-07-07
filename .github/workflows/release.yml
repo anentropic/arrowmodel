@@ -99,17 +99,22 @@ jobs:
       - name: Test wheel installation (abi3 wheel resolves for this Python)
         run: |
           uv venv --python ${{ matrix.python-version }} test-env-wheel
-          # Resolve by name from the local dir so the installer picks the wheel
-          # matching this runner's platform + Python instead of every path.
+          # Resolve arrowmodel by name from the local dir so the installer picks
+          # the wheel matching this runner's platform + Python (not every path).
+          # --only-binary arrowmodel forces the wheel artifact (never the sdist);
+          # the index stays enabled so runtime deps (pydantic) resolve normally.
           uv pip install --python test-env-wheel/bin/python \
-            arrowmodel --no-index --find-links dist
+            arrowmodel --find-links dist --only-binary arrowmodel
           test-env-wheel/bin/python -c "import arrowmodel; print('Wheel installation OK')"
 
       - name: Test sdist installation (builds the extension from source)
         run: |
           uv venv --python ${{ matrix.python-version }} test-env-sdist
+          # --no-binary arrowmodel forces a source build from the local sdist;
+          # the index stays enabled so build deps (maturin) and runtime deps
+          # (pydantic) resolve normally.
           uv pip install --python test-env-sdist/bin/python \
-            arrowmodel --no-index --find-links dist --no-binary arrowmodel
+            arrowmodel --find-links dist --no-binary arrowmodel
           test-env-sdist/bin/python -c "import arrowmodel; print('Sdist installation OK')"
 
       - name: Check py.typed marker in wheel

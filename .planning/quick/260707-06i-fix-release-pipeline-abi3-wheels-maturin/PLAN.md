@@ -2,7 +2,7 @@
 quick_id: 260707-06i
 slug: fix-release-pipeline-abi3-wheels-maturin
 date: 2026-07-07
-status: in-progress
+status: complete
 ---
 
 # Quick Task: Fix release pipeline (abi3 wheels + cross-platform matrix)

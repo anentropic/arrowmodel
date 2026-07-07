@@ -145,6 +145,7 @@ None yet.
 | 260705-ti7 | Complete package rename arrowdantic → arrowmodel (remaining references and filenames) | 2026-07-05 | f78b972 | [260705-ti7-complete-package-rename-arrowdantic-to-a](./quick/260705-ti7-complete-package-rename-arrowdantic-to-a/) |
 | 260706-nlm | PR #16 review fixes + list[NestedModel] container support (retroactive capture) | 2026-07-06 | 5ed2de2, 810897b, 2ec2198 | [260706-nlm-pr16-review-fixes-and-list-of-model](./quick/260706-nlm-pr16-review-fixes-and-list-of-model/) |
 | 260706-svw | PR #16 follow-up fixes: best-effort _arrow_is_map + precompute nested-model tree (no per-row Python) | 2026-07-06 | 9dccb12, 89b8aed | [260706-svw-pr16-followup-fixes-robust-arrow-is-map-](./quick/260706-svw-pr16-followup-fixes-robust-arrow-is-map-/) |
+| 260707-06i | Fix release pipeline (abi3 wheels, cross-platform matrix, default-branch/Pages/docs/sdist/publish fixes) and ship v1.0.0 to PyPI | 2026-07-07 | PRs #18–#23 | [260707-06i-fix-release-pipeline-abi3-wheels-maturin](./quick/260707-06i-fix-release-pipeline-abi3-wheels-maturin/) |
 
 ## Deferred Items
 

@@ -70,6 +70,11 @@ ignore = [
 features = ["pyo3/extension-module"]
 python-source = "src"
 module-name = "arrowmodel._core"
+# maturin auto-detects the root LICENSE and records `License-File: LICENSE` in the
+# distribution metadata, and bundles it into the wheel -- but not into the sdist
+# (the crate manifest lives in rust/). PyPI rejects an sdist whose metadata names
+# a License-File that isn't present, so include it explicitly in the sdist.
+include = [{ path = "LICENSE", format = "sdist" }]
 
 [tool.uv]
 cache-keys = [{ file = "pyproject.toml" }, { file = "rust/Cargo.toml" }, { file = "rust/**/*.rs" }]

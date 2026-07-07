@@ -9,7 +9,10 @@ name = "_core"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.28", features = ["extension-module", "chrono"] }
+# abi3-py311: build a single stable-ABI (abi3) wheel per platform that works on
+# CPython >= 3.11 (matches requires-python), so releases don't need one wheel per
+# minor version. Keeps the Python C API limited to the 3.11 stable subset.
+pyo3 = { version = "0.28", features = ["extension-module", "chrono", "abi3-py311"] }
 pyo3-arrow = "0.17"
 arrow-array = "58"
 arrow-schema = "58"

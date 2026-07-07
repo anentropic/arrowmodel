@@ -32,8 +32,15 @@ Ubuntu runner produced only a version-specific `cp314` linux wheel, so the
    and test sdist install with `--no-binary`.
 
 4. **Publish hardening** — gate `publish` and `github-release` on
-   `startsWith(github.ref, 'refs/tags/')` so a `workflow_dispatch` run can
-   build+validate the exact artifacts without ever touching PyPI.
+   `startsWith(github.ref, 'refs/tags/')` so the release flow never publishes
+   off a non-tag ref.
+
+5. **Reusable build workflow** — extract build-wheels + sdist + validate into
+   `build-dist.yml` (`workflow_call` + path-filtered `pull_request`). PRs that
+   touch the build now run the full cross-platform matrix as a normal PR check,
+   with none of the release flow (no changelog/publish). `release.yml` calls the
+   same reusable workflow on a tag and layers publish + GitHub release on top, so
+   a release builds nothing the PR check did not already exercise.
 
 ## Verification
 

@@ -67,6 +67,11 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # Make publishing idempotent: if a re-run finds some files already on
+          # PyPI (e.g. a prior run uploaded the wheels but failed on the sdist),
+          # skip those and upload only what's missing instead of erroring.
+          skip-existing: true
 
   github-release:
     name: Create GitHub Release

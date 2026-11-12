@@ -96,3 +96,4 @@ uv build
 - Add new dev dependencies to `[dependency-groups]` dev section in pyproject.toml
 - Update __all__ in __init__.py when adding public APIs
 - Write tests for new features (prefer TDD when appropriate)
+- After adding a workflow or changing a `uses:` line under `.github/workflows/`, run `gh actions-lock --no-interactive` and commit `.github/workflows/actions.lock` with it (the "Verify lockfile" check fails otherwise). Never edit the lockfile by hand. See CLAUDE.md for details.

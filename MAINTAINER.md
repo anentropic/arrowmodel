@@ -149,6 +149,8 @@ prek hooks: ruff (lint + format), `cargo fmt --check`, basedpyright (type checki
 
 CI (`.github/workflows/quality.yml`) runs prek, then `cargo clippy --all-targets -- -D warnings` (CI only, since a cold run checks every dependency), then pytest.
 
+`verify-lockfile.yml` runs `gh actions-lock --verify` on pushes to `main` and on pull requests. It fails when `.github/workflows/actions.lock` is out of sync with the workflows' `uses:` lines, so rerun `gh actions-lock --no-interactive` after any `uses:` change. `dtolnay/rust-toolchain@stable` is locked to a commit of its branch and moves only with `gh actions-lock --relock --no-interactive`. The reviewbot reusable workflow isn't covered by the lockfile.
+
 ## Release Process
 
 1. Update version in `pyproject.toml`:

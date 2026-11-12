@@ -171,7 +171,11 @@ Do not make direct repo edits outside a GSD workflow unless the user explicitly 
 
 `.github/workflows/actions.lock` pins every action the workflows use, including the actions those actions use, to an exact commit. After adding a workflow or changing any `uses:` line, run `gh actions-lock --no-interactive` and commit the lockfile with the workflow change, or the "Verify lockfile" check fails. Install the extension with `gh extension install github/gh-actions-lock --pin v0.4.1`. Never edit the lockfile by hand. Dependabot updates it in its own PRs.
 
+Write `uses:` refs as tags (`@v7.0.1`), not commit SHAs: the lockfile holds the commit.
+
 Some actions here are referenced by branch rather than tag (`dtolnay/rust-toolchain@stable`), because the branch name selects what they install. Dependabot doesn't move those pins. To advance them to the branch's current commit, run `gh actions-lock --relock --no-interactive` and review the lockfile diff.
+
+The lockfile doesn't cover the reusable workflow claude-review calls from another repository (`anentropic/github-reviewbot/.github/workflows/review.yml@main`): it runs at whatever `main` points to, and changing that ref needs no lockfile update. The release workflow's PyPI publish step runs a local action generated inside `pypa/gh-action-pypi-publish`, which the tool also can't follow; its warning about that is expected.
 
 ## Opening pull requests
 

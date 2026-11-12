@@ -25,12 +25,12 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
       - name: Generate changelog
-        uses: orhun/git-cliff-action@v4
+        uses: orhun/git-cliff-action@v4.9.1
         with:
           args: --latest
         env:
@@ -38,7 +38,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload changelog
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: changelog
           path: CHANGELOG.md
@@ -59,14 +59,14 @@ jobs:
       contents: read
     steps:
       - name: Download distributions
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.2
         with:
           pattern: dist-*
           path: dist
           merge-multiple: true
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@v1.14.3
         with:
           # Make publishing idempotent: if a re-run finds some files already on
           # PyPI (e.g. a prior run uploaded the wheels but failed on the sdist),
@@ -83,19 +83,19 @@ jobs:
       contents: write
     steps:
       - name: Download distributions
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.2
         with:
           pattern: dist-*
           path: dist
           merge-multiple: true
 
       - name: Download changelog
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.2
         with:
           name: changelog
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@v3.0.4
         with:
           body_path: CHANGELOG.md
           files: dist/*

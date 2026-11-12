@@ -19,13 +19,13 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
 
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache Cargo registry
-        uses: actions/cache@v6
+        uses: actions/cache@v6.1.0
         with:
           path: |
             ~/.cargo/registry/index/
@@ -36,7 +36,7 @@ jobs:
             cargo-${{ runner.os }}-
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v7.6.0
         with:
           enable-cache: true
           cache-dependency-glob: "uv.lock"

@@ -29,6 +29,7 @@ on:
       - "Build distributions"
       - "Docs"
       - "Claude Review"
+      - "Verify lockfile"
     types: [completed]
 
 permissions:
